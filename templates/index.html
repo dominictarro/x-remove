@@ -6,7 +6,7 @@
     <title>𝕏-remove</title>
     <!-- jquery -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <!-- JSON text box -->
+    <!-- Text box -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/material.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/lint/lint.min.css">
@@ -14,20 +14,20 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/lint/lint.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/lint/json-lint.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/fold/foldcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/fold/foldgutter.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/fold/brace-fold.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsonlint/1.6.0/jsonlint.min.js"></script>
     <!-- Materialize CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/2.1.5/css/dataTables.dataTables.min.css">
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/colresizable/colResizable-1.6.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <!-- Markdown handling -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <!-- Data tables -->
     <script src="https://cdn.datatables.net/2.1.5/js/dataTables.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/colresizable/colResizable-1.6.min.js"></script>
-    
+
     <!-- Follower parsing -->
     <script>
 
@@ -39,7 +39,6 @@
     */
     function parseFetchFollowerFunction(fetchFunctionString) {
         const parsedFn = fetchFunctionString.match(/(?<fn>[a-zA-Z_]*[a-zA-Z0-9_]*)\(\s*["'`](?<url>[^"'`]*?)["'`]\s*,\s*(?<options>\{.*\})\s*\)/s).groups;
-        console.log(parsedFn);
         return {
             func: {
                 name: parsedFn.fn,
@@ -70,14 +69,21 @@
     */
     function parseFetchURL(fetchUrl) {
         const urlObj = new URL(fetchUrl);
+
         const variablesParam = urlObj.searchParams.get("variables");
         const featuresParam = urlObj.searchParams.get("features");
 
-        const decodedVariables = decodeURIComponent(variablesParam);
-        const decodedFeatures = decodeURIComponent(featuresParam);
+        var variables = {};
+        if (variablesParam !== null) {
+            const decodedVariables = decodeURIComponent(variablesParam);
+            variables = JSON.parse(decodedVariables)
+        }
 
-        const variables = JSON.parse(decodedVariables);
-        const features = JSON.parse(decodedFeatures);
+        var features = [];
+        if (featuresParam !== null) {
+            const decodedFeatures = decodeURIComponent(featuresParam);
+            features = JSON.parse(decodedFeatures);
+        }
 
         return {
             url: urlObj.origin + urlObj.pathname,
@@ -109,7 +115,7 @@
     */
     function parseFollowersURL(followersUrl) {
         var urlObj = parseFetchURL(followersUrl);
-        urlObj.query_id = urlObj.url.match('graphql/([^/]+)/Followers')[1];
+        urlObj.query_id = urlObj.url.match('graphql/([^/]+)/')[1];
         return urlObj;
     }
     </script>
@@ -266,6 +272,63 @@
     });
     </script>
 
+    <!-- Cursor state (local storage) -->
+    <script>
+        const CURSOR_STATE_KEY = "cursor-history";
+
+        class CursorState {
+            constructor(history = null) {
+                this.history = history || [];
+            }
+
+            current() {
+                return this.history[this.history.length - 1] || null;
+            }
+
+            push(cursor) {
+                this.history.push(cursor);
+                this.toStorage();
+            }
+
+            toStorage() {
+                localStorage.setItem(
+                    CURSOR_STATE_KEY,
+                    JSON.stringify(this)
+                );
+            }
+
+            static fromStorage() {
+                var cursor_history = localStorage.getItem(CURSOR_STATE_KEY);
+                if (cursor_history) {
+                    cursor = new CursorState(JSON.parse(cursor_history).history);
+                    return cursor;
+                }
+                cursor_history = new CursorState();
+                cursor_history.toStorage();
+                return cursor_history;
+            }
+
+            getNextSortIndex() {
+                var cur = this.current();
+                if (!cur) {return null;}
+                return cur.bottom ? cur.bottom.value: null;
+            }
+
+            getPrevSortIndex() {
+                var cur = this.current();
+                if (!cur) {return null;}
+                return cur.top ? cur.top.value: null;
+            }
+        }
+
+        var cursor = null;
+        $(document).ready(function() {
+            // Initialize the cursor
+            cursor = CursorState.fromStorage();
+        });
+
+    </script>
+
     <!-- X Followers -->
      <script>
     
@@ -313,11 +376,11 @@
                 legacy.screen_name,
                 legacy.followers_count,
                 legacy.friends_count,
-                legacy.has_graduated_access,
-                legacy.is_verified,
+                user.has_graduated_access,
+                user.is_blue_verified || legacy.verified,
                 legacy.following,
                 legacy.profile_image_url_https.replace("_normal", "_400x400"),
-                legacy.created_at,
+                transformDateTime(legacy.created_at),
                 false
             );
         }
@@ -342,8 +405,147 @@
             response.data.user.result.timeline.timeline.instructions.slice(-1)[0].entries
         );
     }
-    </script>
 
+    /**
+    * Transform a datetime string to a date string.
+    * @param {string} datetimeStr - The datetime string.
+    * @returns {string} - The date string.
+    */
+    function transformDateTime(datetimeStr) {
+        // Parse the input datetime string
+        const date = new Date(datetimeStr);
+    
+        // Extract year, month, and day
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+        const day = String(date.getDate()).padStart(2, '0');
+    
+        // Format into YYYY-MM-DD
+        const formattedDate = `${year}-${month}-${day}`;
+    
+        return formattedDate;
+    }
+    </script>
+    <!-- X API methods -->
+    <script>
+
+        /**
+        * Remove a follower from the X API.
+        * @param {string} follower_x_id - The follower's X ID.
+        * @returns {boolean} - Whether the follower was removed successfully.
+        */
+        async function removeFollower(follower_x_id) {
+            if (!(db.apiState.hasOwnProperty('func') && db.apiState.hasOwnProperty('request'))) {
+                alert("API state not set.");
+                return false;
+            }
+            const url = '/remove';
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+            const body = JSON.stringify({
+                user_id: db.apiState.request.params.variables.userId || "anon",
+                query_id: db.apiState.request.query_id,
+                target_user_id: follower_x_id,
+                headers: db.apiState.func.options.headers,
+            });
+
+            const response = fetch(url, {
+                method: 'POST',
+                headers: headers,
+                body: body
+            }).then(
+                response => {
+                    if (response.ok) {
+                        console.log('Follower removed successfully:', response.json());
+                        if (response.status === 200) {
+                            db.upsertFollower({ x_id: follower_x_id, is_removed: true }, false, false);
+                            return true;
+                        }
+                        return false;
+                    } else {
+                        console.error('Failed to remove follower:', response.json());
+                        return false;
+                    }
+                }
+            );
+            return true;
+        }
+
+        /**
+        * List followers from the X API.
+        * @param {number} n - The number of followers to list.
+        * @returns {boolean} - Whether the followers were listed successfully.
+        */
+        async function listFollowers(n=50) {
+            if (!(db.apiState.hasOwnProperty('func') && db.apiState.hasOwnProperty('request'))) {
+                alert("API state not set.");
+                return false;
+            }
+            const url = '/list';
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+            const body = JSON.stringify({
+                user_id: db.apiState.request.params.variables.userId,
+                query_id: db.apiState.request.query_id,
+                headers: db.apiState.func.options.headers,
+                cursor: cursor.getNextSortIndex(),
+                count: n,
+            });
+
+            return fetch(url, {
+                method: 'POST',
+                headers: headers,
+                body: body
+            }).then(
+                response => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error('Failed to list followers');
+                    }
+                }
+            );
+        }
+
+        /*
+        * Parses the cursors from an X follower list response.
+        * @param {string} response - The X follower list response.
+        * @returns {object} - The cursors object with top and bottom cursors.
+        * 
+        * @example
+        * const response = {...};
+        * const cursors = parseCursorsFromResponse(response);
+        * console.log(cursors);
+        * // {
+        * //     top: { cursorType: "Top", value: "123456789" },
+        * //     bottom: { cursorType: "Bottom", value: "987654321" }
+        * // }
+        */
+        function parseCursorsFromResponse(response) {
+            var cursorArray = response.data.user.result.timeline.timeline.instructions.slice(-1)[0].entries.filter(entry => entry.content.cursorType);
+            var cursors = {
+                top: null,
+                bottom: null
+            };
+            if (cursorArray.length > 0) {
+                if (cursorArray.length > 2) {
+                    console.log("More than 2 cursors found in response");
+                }
+                cursorArray.forEach(cursorEntry => {
+                    if (cursorEntry.content.cursorType === "Top") {
+                        cursors.top = cursorEntry.content;
+                    } else if (cursorEntry.content.cursorType === "Bottom") {
+                        cursors.bottom = cursorEntry.content;
+                    }
+                });
+            } else {
+                console.log("No cursor found in response");
+            }
+            return cursors;
+        }
+    </script>
     <style>
         .CodeMirror {
             width: 100%;
@@ -377,7 +579,7 @@
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
         .api-state-summary.active {
-            color: #26a69a;
+            color: #ee6e73;
         }
         .api-state-summary.inactive {
             color: #efa750;
@@ -396,38 +598,19 @@
 <body>
     <div class="container">
         <h1 class="center-align">𝕏-remove</h1>
-        <p class="center-align" style="opacity: 40%;">Remove X bots en masse.</p>
+        <p class="center-align" style="opacity: 40%;">Remove 𝕏 bots en masse.</p>
 
-        <div id="apiStateSection">
-            <div id="apiStateSummary" class="api-state-summary inactive">
-                <div id="apiStateLeft"></div>
-                <div id="apiStateRight"></div>
-            </div>
-        </div>
         <!-- Tabs Navigation -->
         <ul class="tabs">
-            <li class="tab col s3"><a href="#tab1">Add Users</a></li>
-            <li class="tab col s3"><a href="#tab2">Set API State</a></li>
+            <li class="tab col s3"><a href="#tab1">Home</a></li>
+            <li class="tab col s3"><a href="#tab2">Help</a></li>
         </ul>
 
         <!-- Tab 1 Content -->
         <div id="tab1" class="col s12">
-            <form id="userForm">
-                <div class="input-field">
-                    <textarea id="user_form_input" name="user_form_input" class="materialize-textarea" rows="4">{}</textarea>
-                </div>
-                <div class="center-align" style="display:flex; justify-content: space-between;">
-                    <div><button type="submit" id="userAddButton" class="btn waves-effect waves-light">Add</button></div>
-                    <div><button type="button" id="userFormatButton" class="btn" style="font-size: 12px; background-color: transparent; border: 1px solid; color: black;">Format</button></div>
-                </div>
-            </form>
-        </div>
-
-        <!-- Tab 2 Content -->
-        <div id="tab2" class="col s12">
             <form id="javascriptForm">
                 <div class="input-field">
-                    <textarea id="js_form_input" name="js_form_input" class="materialize-textarea" rows="4">// Example fetch function
+                    <textarea id="js_form_input" name="js_form_input" class="materialize-textarea" rows="4">// Example fetch (Node.js) function
 fetch(
     "https://api.twitter.com/graphql/123xyz456cba789/Followers?variables=%7B%22userId%22%3A%22987654321%22%7D&features=%5B%22user%22%5D",
     {
@@ -438,13 +621,48 @@ fetch(
     }
 )</textarea>
                 </div>
-                <div class="center-align" style="display:flex; justify-content: space-between;">
-                    <div><button class="btn waves-effect waves-light" type="submit">Load</button></div>
-                    <div><button type="button" id="resetAPIStateButton" class="btn" style="font-size: 12px; background-color: transparent; border: 1px solid; color: black;">Reset</button></div>
-                </div>
             </form>
+            <div class="center-align" style="display:flex; justify-content: space-between;">
+                <div><button  type="submit" id="extractAuth" class="btn waves-effect waves-light blue">Extract Auth</button></div>
+                <button type="submit" id="userAddButton" class="btn waves-effect waves-light blue">Load Followers</button>
+                <div><button type="button" id="resetAPIStateButton" class="btn waves-effect waves-light blue">Reset Auth</button></div>
+            </div>
+            <br>
+            <div id="apiStateSection">
+                <div id="apiStateSummary" class="api-state-summary inactive">
+                    <div id="apiStateLeft"></div>
+                    <div id="apiStateRight"></div>
+                </div>
+            </div>    
         </div>
-        <br>
+
+        <!-- Tab 2 Content -->
+        <div id="tab2" class="col s12" style="padding-bottom:2vw;">
+            <div id="markdown-content" class="html cm-s-material CodeMirror CodeMirror-scroll">
+                <div style="margin: 7%;">
+Like lice removal but for bot followers on 𝕏.
+
+##### How to use
+
+1. Go to your followers page on 𝕏.
+1. Open the developer console (F12), go to the "Network" tab, and reload the page.
+1. Find the Fetch/XHR request to the "/Followers" endpoint.
+1. Right-click the item and copy the request as "fetch (Node.js)".
+1. Paste the copied fetch function into the 𝕏-remove text box in the Home tab.
+1. Click "Extract Auth" to extract the session details.
+1. Click "Load Followers" to load some followers.
+1. Tick boxes of followers to remove and click "Remove Selected Followers".
+
+!!! warning !!!
+
+You can't undo follower removals. Don't muck it up.
+
+##### Pointers
+
+To blaze through removal, double-click the checkbox of a follower. Hit Space to check the follower. Double tap Tab to go to the next follower.
+                </div>
+            </div>
+        </div>
         <br>
         <div>
             <label for="verified-filter">Has Twitter Blue:</label>
@@ -459,12 +677,13 @@ fetch(
             <thead>
                 <tr>
                     <th></th>
-                    <th>Profile Picture</th>
+                    <th></th>
                     <th>Name</th>
                     <th>Verified</th>
                     <th>Screen Name</th>
                     <th>Followers Count</th>
                     <th>Following Count</th>
+                    <th>Created At</th>
                 </tr>
             </thead>
             <tbody>
@@ -487,16 +706,6 @@ fetch(
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             M.AutoInit();
-        });
-
-        var user_editor = CodeMirror.fromTextArea(document.getElementById('user_form_input'), {
-            mode: "application/json",
-            lineNumbers: true,
-            foldGutter: true,
-            theme: "material",
-            gutters: ["CodeMirror-lint-markers", "CodeMirror-foldgutter"],
-            lint: true,
-            extraKeys: {"Ctrl-Q": function(cm){ cm.foldCode(cm.getCursor()); }},
         });
 
         var js_editor = CodeMirror.fromTextArea(document.getElementById('js_form_input'), {
@@ -554,7 +763,7 @@ fetch(
             });
         }
 
-        function updateAPIStateSummary(apiState) {
+        function updateAPIStateSummary(apiState, cursor) {
             const apiStateSummary = document.getElementById('apiStateSummary');
             const apiStateLeft = document.getElementById('apiStateLeft');
             const apiStateRight = document.getElementById('apiStateRight');
@@ -564,10 +773,10 @@ fetch(
                 const authorization = apiState.func.options.headers['authorization'];
                 const user_id = apiState.request.params.variables.userId;
                 const query_id = apiState.request.query_id;
-        
+
                 // Format the API state into two columns
-                const leftColumn = `user_id: ${user_id}\nquery_id: ${query_id}`;
-                const rightColumn = `x-csrf-token: ***${x_csrf_token.slice(-4)}\nauthorization: ***${authorization.slice(-4)}`;
+                const leftColumn = `user_id: ${user_id}\nquery_id: ${query_id}\ncursor-prev:${cursor.getPrevSortIndex()}`;
+                const rightColumn = `***${x_csrf_token.slice(-4)}  :x-csrf-token\n***${authorization.slice(-4)} :authorization\n${cursor.getNextSortIndex()}   :cursor-next`;
         
                 // Update the API state summary
                 apiStateLeft.innerText = leftColumn;
@@ -585,6 +794,60 @@ fetch(
                 apiStateSummary.classList.add('inactive');
                 apiStateSummary.classList.remove('active');
             }
+        }
+
+        async function updateTableAsyncBatch(users, batchSize = 25) {
+            console.log(`Updating table for ${users.length} user(s)`);
+        
+            const userBatches = [];
+        
+            // Split users into batches
+            for (let i = 0; i < users.length; i += batchSize) {
+                userBatches.push(users.slice(i, i + batchSize));
+            }
+        
+            for (const batch of userBatches) {
+                await Promise.all(batch.map(async (user) => {
+                    var row = followersTable.row((idx, data) => data[8] === user.x_id);
+                    var data = row.data();
+                    if (data) {
+                        if (user.is_removed) {
+                            // Remove row
+                            row.remove().draw();
+                            return;
+                        }
+                        // Update existing row
+                        row.data([
+                            data[0],
+                            mk_pfp_url(user),
+                            user.name,
+                            getVerifiedCheckmark(user.is_blue_verified),
+                            "@" + user.screen_name,
+                            user.followers_count,
+                            user.friends_count,
+                            user.created_at,
+                            user.x_id
+                        ]);
+                    } else {
+                        if (user.is_removed) {
+                            return;
+                        }
+                        // Add new row
+                        followersTable.row.add([
+                            `<label><input type="checkbox" name="row-checkbox" value=false><span></span></label>`,
+                            mk_pfp_url(user),
+                            user.name,
+                            getVerifiedCheckmark(user.is_blue_verified),
+                            "@" + user.screen_name,
+                            user.followers_count,
+                            user.friends_count,
+                            user.created_at,
+                            user.x_id
+                        ]);
+                    }
+                }));
+            }
+            followersTable.draw();
         }
 
         function updateTable(users) {
@@ -630,116 +893,133 @@ fetch(
             }); 
         }
 
-
         $(document).ready(function() {
             // Update table with existing users
-            updateTable(db.getNonRemovedFollowers());
+            updateTableAsyncBatch(db.getNonRemovedFollowers()).then(() => {
+                console.log("Table initialized");
+            });
         });
         $(document).ready(function() {
             // Update API state summary
-            updateAPIStateSummary(db.apiState);
+            updateAPIStateSummary(db.apiState, cursor);
         });
     </script>
     <!-- Event listeners -->
     <script>
-        document.getElementById('userForm').addEventListener('submit', function(event) {
-            event.preventDefault(); // Prevent the default form submission
-            var value = user_editor.getValue();
-            if (value == "{}") {
-                alert("Please replace the placeholder JSON.");
-                return;
-            }
-            console.log("Adding users from JSON form data");
-            db.upsertFollowers(
-                parseFromTwitterFollowersResponse(JSON.parse(value)),
-                true,
-                true
-            )
-            updateTable(db.getNonRemovedFollowers());
-        });
-
-        document.getElementById('javascriptForm').addEventListener('submit', function(event) {
-            event.preventDefault(); // Prevent the default form submission
-            var js = js_editor.getValue();
-            try {
-                var parsed = parseFetchFollowerFunction(js);
-                if (
-                    (parsed.request.params.variables.userId === "987654321")
-                    && (parsed.request.query_id === "123xyz456cba789")
-                    && (parsed.func.options.headers.authorization === "456def")
-                    && (parsed.func.options.headers['x-csrf-token'] === "abc123")
-                ) {
-                    alert("Please replace the placeholder function.");
-                    return;
-                }
-                db.setAPIState(parsed, true);
-                updateAPIStateSummary(db.apiState);
-            } catch (e) {
-                console.log(e);
-                alert("Invalid JavaScript: " + e);
-                return;
-            }
-            console.log(parsed);
-        });
-
-        // Add filter for Verified column. Just filters based on the is_verified attribute we
-        // set in the getVerifiedCheckmark function.
-        $('#verified-filter').on('change', function() {
-            var filterValue = $(this).val();
-            console.log("Filtering verified: ", filterValue);
-            if (filterValue === "*") {
-                followersTable.column(3).search("").draw();
-                return;
-            } else if (filterValue !== "true" && filterValue !== "false") {
-                error("Invalid filter value: ", filterValue);
-                return;
-            }
-            followersTable.column(3).search(
-                function(searchVal, row) {
-                    var cell = row.at(3);
-                    return $(cell).attr("is_verified") === filterValue;
-                }
-            ).draw();
-        });
-
-        // Remove followers
-        $('#removeFollowersButton').click(function() {
-            console.log("Removing selected followers");
-            var selectedRows = followersTable.rows(
-                ":has(input[type='checkbox']:checked)"
-            ).data().toArray().map(
-                row => {
-                    return {
-                        x_id: row[8],
-                        is_removed: true,
-                    };
-                }
-            );
-            db.upsertFollowers(selectedRows, false, true);
-            updateTable(db.getRemovedFollowers());
-        });
-
-        // Attach listeners to ready elements
         $(document).ready(function() {
-            // Autoformat JSON button
-            $('#userFormatButton').click(function() {
-                var json = user_editor.getValue();
+            document.getElementById('userAddButton').addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent the default form submission
+                listFollowers().then((followers) => {
+                    // pulling straight from the API so retain is_removed
+                    db.upsertFollowers(parseFromTwitterFollowersResponse(followers), false, true);
+                    console.log("Adding users from JSON form data");
+                    updateTableAsyncBatch(db.getNonRemovedFollowers()).then(
+                        () => {
+                            console.log("Table updated with new users")
+                            cursor.push(parseCursorsFromResponse(followers));
+                            updateAPIStateSummary(db.apiState, cursor);
+                        }
+                    );
+                });
+            });
+        });
+
+        $(document).ready(function() {
+            document.getElementById('extractAuth').addEventListener('click', function(event) {
+                event.preventDefault(); // Prevent the default form submission
+                var js = js_editor.getValue();
                 try {
-                    var formatted = JSON.stringify(JSON.parse(json), null, 2);
-                    user_editor.setValue(formatted);
+                    var parsed = parseFetchFollowerFunction(js);
+                    if (
+                        (parsed.request.params.variables.userId === "987654321")
+                        && (parsed.request.query_id === "123xyz456cba789")
+                        && (parsed.func.options.headers.authorization === "456def")
+                        && (parsed.func.options.headers['x-csrf-token'] === "abc123")
+                    ) {
+                        alert("Please replace the placeholder function.");
+                        return;
+                    }
+                    db.setAPIState(parsed, true);
+                    updateAPIStateSummary(db.apiState, cursor);
                 } catch (e) {
                     console.log(e);
-                    alert("Invalid JSON: " + e);
+                    alert("Invalid JavaScript: " + e);
+                    return;
                 }
             });
+        });
 
+        $(document).ready(function() {
+            // Add filter for Verified column. Just filters based on the is_verified attribute we
+            // set in the getVerifiedCheckmark function.
+            $('#verified-filter').on('change', function() {
+                var filterValue = $(this).val();
+                console.log("Filtering verified: ", filterValue);
+                if (filterValue === "*") {
+                    followersTable.column(3).search("").draw();
+                    return;
+                } else if (filterValue !== "true" && filterValue !== "false") {
+                    error("Invalid filter value: ", filterValue);
+                    return;
+                }
+                followersTable.column(3).search(
+                    function(searchVal, row) {
+                        var cell = row.at(3);
+                        return $(cell).attr("is_verified") === filterValue;
+                    }
+                ).draw();
+            });
+        });
+
+        $(document).ready(function() {
+            // Remove followers
+            $('#removeFollowersButton').click(function() {
+                console.log("Removing selected followers");
+                var selectedFollowers = followersTable.rows(
+                    ":has(input[type='checkbox']:checked)"
+                ).data().toArray().map(
+                    row => {
+                        return {
+                            x_id: row[8],
+                            is_removed: false,
+                        };
+                    }
+                );
+                var nRemovedFollowers = 0;
+                const removalPromises = selectedFollowers.map(item => 
+                    removeFollower(item.x_id).then((was_removed) => {
+                        nRemovedFollowers += was_removed ? 1 : 0;
+                    }).catch((error) => {
+                        console.error("Failed to remove follower:", error);
+                    })
+                );
+
+                Promise.all(removalPromises).then(() => {
+                    if (nRemovedFollowers > 0) {
+                        console.log(`Updating ${nRemovedFollowers} removed user(s) in database`);
+                        db.setDatabase();
+                        updateTableAsyncBatch(db.getRemovedFollowers()).then(
+                            () => console.log("Table updated with removed users")
+                        );
+                    } else {
+                        console.log("No followers were removed");
+                    }
+                });
+            });
+        });
+
+        $(document).ready(function() {
             // Reset API state button
             $('#resetAPIStateButton').click(function() {
                 db.setAPIState({}, true);
-                updateAPIStateSummary(db.apiState);
+                updateAPIStateSummary(db.apiState, cursor);
             });
-
         });
+
+        document.addEventListener("DOMContentLoaded", function() {
+            var el = document.getElementById('markdown-content');
+            el.innerHTML = marked.parse(el.innerText);
+        });    
     </script>
 </body>
 </html>
