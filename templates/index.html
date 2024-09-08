@@ -28,8 +28,99 @@
     <script src="https://cdn.datatables.net/2.1.5/js/dataTables.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/colresizable/colResizable-1.6.min.js"></script>
 
-    <!-- Follower parsing -->
+    <!-- Auth data -->
     <script>
+    const AUTH_DATA_KEY = "auth-data";
+
+    class AuthenticationData {
+        constructor(user_id, headers, lastUpdated = null) {
+            this.user_id = user_id
+            this.headers = headers
+            this.lastUpdated = lastUpdated || new Date();
+        }
+
+        /**
+        * Parse the authentication data from the fetch function string.
+        * @param {string} fetchFunctionString - The fetch function string.
+        * @returns {AuthenticationData} - The authentication data object.
+        */
+        static fromRemoveFollowerFetchNodeJsCode(fetchFunctionString) {
+            const parsedFn = parseFetchFollowerFunction(fetchFunctionString);
+            var obj = new AuthenticationData(
+                getUserIdCookie(parsedFn.func.options.headers.cookie),
+                parsedFn.func.options.headers
+            );
+            return obj;
+        }
+
+        setStorage() {
+            localStorage.setItem(
+                AUTH_DATA_KEY,
+                JSON.stringify(this)
+            );
+        }
+
+        updateFromJSON(jsonData) {
+            const data = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
+
+            for (const [key, value] of Object.entries(data)) {
+                if (this.hasOwnProperty(key)) {
+                    this[key] = value;
+                }
+            }
+        }
+
+        getCookiesObject() {
+            // Parse the cookies from the headers
+            const cookies = this.headers.cookie.split(';').map(cookie => cookie.trim());
+            return Object.fromEntries(cookies.map(cookie => cookie.split('=')));
+        }
+
+        /**
+        * Load the authentication data from local storage.
+        * @returns {AuthenticationData} - The authentication data object.
+        */
+        static fromStorage() {
+            var authData = localStorage.getItem(AUTH_DATA_KEY);
+            if (authData) {
+                authData = JSON.parse(authData);
+                if (new Date() - new Date(authData.lastUpdated) > 24 * 60 * 60 * 1000) {
+                    return null;
+                }
+                return new AuthenticationData(
+                    authData.user_id,
+                    authData.headers,
+                    new Date(authData.lastUpdated)
+                );
+            }
+            return null;
+        }
+
+        static clearStorage() {
+            localStorage.removeItem(AUTH_DATA_KEY);
+        }
+    }
+
+    /**
+    * Parse the 'twid' value from the cookie string.
+    * @param {string} cookie - The cookie string.
+    * @returns {string|null} - The parsed 'twid' value or null if not found.
+    */
+    function getUserIdCookie(cookie) {
+        const match = cookie.match(/twid=u%3D(\d+)/);
+        return match ? match[1] : null;
+    }
+
+    function formatCookies(cookies) {
+        return Object.entries(cookies)
+        .map(([key, value]) => {
+            if (typeof value === 'string') {
+                return `${key}="${value.replace(/"/g, '\\"')}"`;
+            }
+            return `${key}=${String(value)}`;
+        })
+        .join('; ');
+    }
 
     /**
     * Parse the fetch followers function string to get the URL, variables, features, headers, referrer, referrerPolicy, body, method, mode, and credentials.
@@ -96,9 +187,9 @@
     }
 
     /**
-    * Parse the followers URL to get the URL and query ID.
+    * Parse the followers URL to get the URL.
     * @param {string} followersUrl - The followers URL.
-    * @returns {object} - The parsed followers URL object with the URL, variables, features, and query ID.
+    * @returns {object} - The parsed followers URL object with the URL, variables, and features.
     *
     * @example
     * const followersUrl = "https://api.twitter.com/graphql/123456789/Followers?variables=%7B%22userId%22%3A%22123456789%22%7D&features=%5B%22user%22%5D";
@@ -109,15 +200,20 @@
     * //     params: {
     * //         variables: { userId: "123456789" },
     * //         features: ["user"]
-    * //     },
-    * //     query_id: "123456789"
+    * //     }
     * // }
     */
     function parseFollowersURL(followersUrl) {
         var urlObj = parseFetchURL(followersUrl);
-        urlObj.query_id = urlObj.url.match('graphql/([^/]+)/')[1];
         return urlObj;
     }
+
+    var auth = null;
+
+    $(document).ready(function() {
+        // Initialize the database
+        auth = AuthenticationData.fromStorage();
+    });
     </script>
 
     <!-- Local storage -->
@@ -127,7 +223,6 @@
     class Database {
         constructor() {
             this.followers = {};
-            this.apiState = {};
             this.lastUpdated = new Date().toISOString();
         }
 
@@ -217,9 +312,9 @@
                 for (const [key, value] of Object.entries(follower)) {
                     this.followers[follower.x_id][key] = value;
                 }
-                return;
+            } else {
+                this.followers[follower.x_id] = follower;
             }
-            this.followers[follower.x_id] = follower;
             if (update_storage) {
                 this.setDatabase();
             }
@@ -256,12 +351,6 @@
             return Object.values(this.followers).filter(f => f.is_removed);
         }
 
-        setAPIState(apiState, update_storage = true) {
-            this.apiState = apiState;
-            if (update_storage) {
-                this.setDatabase();
-            }
-        }
     }
 
     var db = null;
@@ -435,8 +524,8 @@
         * @returns {boolean} - Whether the follower was removed successfully.
         */
         async function removeFollower(follower_x_id) {
-            if (!(db.apiState.hasOwnProperty('func') && db.apiState.hasOwnProperty('request'))) {
-                alert("API state not set.");
+            if (!auth) {
+                alert("API authentication data is not set.");
                 return false;
             }
             const url = '/remove';
@@ -444,13 +533,12 @@
                 'Content-Type': 'application/json',
             };
             const body = JSON.stringify({
-                user_id: db.apiState.request.params.variables.userId || "anon",
-                query_id: db.apiState.request.query_id,
+                user_id: auth.user_id,
                 target_user_id: follower_x_id,
-                headers: db.apiState.func.options.headers,
+                headers: auth.headers,
             });
 
-            const response = fetch(url, {
+            return fetch(url, {
                 method: 'POST',
                 headers: headers,
                 body: body
@@ -458,18 +546,19 @@
                 response => {
                     if (response.ok) {
                         console.log('Follower removed successfully:', response.json());
-                        if (response.status === 200) {
-                            db.upsertFollower({ x_id: follower_x_id, is_removed: true }, false, false);
-                            return true;
-                        }
-                        return false;
+                        db.upsertFollower({ x_id: follower_x_id, is_removed: true }, false, false);
+                        return true;
                     } else {
                         console.error('Failed to remove follower:', response.json());
                         return false;
                     }
                 }
+            ).catch(
+                error => {
+                    console.error('Failed to remove follower', follower_x_id, ':', error);
+                    return false;
+                }
             );
-            return true;
         }
 
         /**
@@ -478,8 +567,8 @@
         * @returns {boolean} - Whether the followers were listed successfully.
         */
         async function listFollowers(n=50) {
-            if (!(db.apiState.hasOwnProperty('func') && db.apiState.hasOwnProperty('request'))) {
-                alert("API state not set.");
+            if (!auth) {
+                alert("API authentication data is not set.");
                 return false;
             }
             const url = '/list';
@@ -487,9 +576,8 @@
                 'Content-Type': 'application/json',
             };
             const body = JSON.stringify({
-                user_id: db.apiState.request.params.variables.userId,
-                query_id: db.apiState.request.query_id,
-                headers: db.apiState.func.options.headers,
+                user_id: auth.user_id,
+                headers: auth.headers,
                 cursor: cursor.getNextSortIndex(),
                 count: n,
             });
@@ -568,7 +656,7 @@
         .profile-pic:hover {
             transform: scale(2.5);
         }
-        .api-state-summary {
+        .api-auth-data-summary {
             /*background-color: rgb(24, 24, 24); /* Dark gray background */
             border-radius: 4px; /* Rounded corners */
             padding: 10px;
@@ -578,19 +666,19 @@
             justify-content: space-between;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
-        .api-state-summary.active {
+        .api-auth-data-summary.active {
             color: #ee6e73;
         }
-        .api-state-summary.inactive {
+        .api-auth-data-summary.inactive {
             color: #efa750;
         }
-        #apiStateLeft, #apiStateRight {
+        #apiAuthDataLeft, #apiAuthDataRight {
             width: 48%;
         }
-        #apiStateLeft {
+        #apiAuthDataLeft {
             text-align: left;
         }
-        #apiStateRight {
+        #apiAuthDataRight {
             text-align: right;
         }
         </style>
@@ -625,13 +713,13 @@ fetch(
             <div class="center-align" style="display:flex; justify-content: space-between;">
                 <div><button  type="submit" id="extractAuth" class="btn waves-effect waves-light blue">Extract Auth</button></div>
                 <button type="submit" id="userAddButton" class="btn waves-effect waves-light blue">Load Followers</button>
-                <div><button type="button" id="resetAPIStateButton" class="btn waves-effect waves-light blue">Reset Auth</button></div>
+                <div><button type="button" id="resetAuthButton" class="btn waves-effect waves-light blue">Reset Auth</button></div>
             </div>
             <br>
-            <div id="apiStateSection">
-                <div id="apiStateSummary" class="api-state-summary inactive">
-                    <div id="apiStateLeft"></div>
-                    <div id="apiStateRight"></div>
+            <div id="apiAuthSummarySection">
+                <div id="apiAuthSummary" class="api-auth-data-summary inactive">
+                    <div id="apiAuthDataLeft"></div>
+                    <div id="apiAuthDataRight"></div>
                 </div>
             </div>    
         </div>
@@ -644,10 +732,9 @@ Like lice removal but for bot followers on 𝕏.
 
 ##### How to use
 
-1. Go to your followers page on 𝕏.
-1. Open the developer console (F12), go to the "Network" tab, and reload the page.
+1. Open the developer console (F12), go to the "Network" tab, and open your followers page on 𝕏.
 1. Find the Fetch/XHR request to the "/Followers" endpoint.
-1. Right-click the item and copy the request as "fetch (Node.js)".
+1. Right-click the request and copy the request as "fetch (Node.js)".
 1. Paste the copied fetch function into the 𝕏-remove text box in the Home tab.
 1. Click "Extract Auth" to extract the session details.
 1. Click "Load Followers" to load some followers.
@@ -659,7 +746,7 @@ You can't undo follower removals. Don't muck it up.
 
 ##### Pointers
 
-To blaze through removal, double-click the checkbox of a follower. Hit Space to check the follower. Double tap Tab to go to the next follower.
+To blaze through removal, double-click the checkbox of the first follower. Double tap TAB to go to the next follower and hit SPACE to tick the follower's removal box.
                 </div>
             </div>
         </div>
@@ -763,49 +850,56 @@ To blaze through removal, double-click the checkbox of a follower. Hit Space to 
             });
         }
 
-        function updateAPIStateSummary(apiState, cursor) {
-            const apiStateSummary = document.getElementById('apiStateSummary');
-            const apiStateLeft = document.getElementById('apiStateLeft');
-            const apiStateRight = document.getElementById('apiStateRight');
+        function updateAuthDataSummary() {
+            const apiAuthSummary = document.getElementById('apiAuthSummary');
+            const apiAuthDataLeft = document.getElementById('apiAuthDataLeft');
+            const apiAuthDataRight = document.getElementById('apiAuthDataRight');
 
-            if (apiState && apiState.func && apiState.request) {
-                const x_csrf_token = apiState.func.options.headers['x-csrf-token'];
-                const authorization = apiState.func.options.headers['authorization'];
-                const user_id = apiState.request.params.variables.userId;
-                const query_id = apiState.request.query_id;
+            if (auth) {
+                const lastUpdated = auth.lastUpdated.toLocaleString(
+                    'en-US',
+                    {
+                        month: 'long',
+                        day: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    }
+                ).replace(/, (\d{2}:\d{2} [APM]{2})$/, ' at $1');
 
-                // Format the API state into two columns
-                const leftColumn = `user_id: ${user_id}\nquery_id: ${query_id}\ncursor-prev:${cursor.getPrevSortIndex()}`;
-                const rightColumn = `***${x_csrf_token.slice(-4)}  :x-csrf-token\n***${authorization.slice(-4)} :authorization\n${cursor.getNextSortIndex()}   :cursor-next`;
-        
-                // Update the API state summary
-                apiStateLeft.innerText = leftColumn;
-                apiStateRight.innerText = rightColumn;
-        
+                // Format the API data into two columns
+                const leftColumn = `user-id: ${auth.user_id}\nauthorization: Bearer ${auth.headers['authorization'].slice(7, 11)}***${auth.headers['authorization'].slice(-4)}\ncursor-prev:${cursor.getPrevSortIndex()}`;
+                const rightColumn = `${lastUpdated}  :last-updated\n\n${cursor.getNextSortIndex()}   :cursor-next`;
+
+                // Update the API data summary
+                apiAuthDataLeft.innerText = leftColumn;
+                apiAuthDataRight.innerText = rightColumn;
+
                 // Set the active class
-                apiStateSummary.classList.add('active');
-                apiStateSummary.classList.remove('inactive');
+                apiAuthSummary.classList.add('active');
+                apiAuthSummary.classList.remove('inactive');
             } else {
-                // Clear the API state summary
-                apiStateLeft.innerText = 'No API state set';
-                apiStateRight.innerText = '';
-        
+                // Clear the API data summary
+                apiAuthDataLeft.innerText = 'No API authentication data set';
+                apiAuthDataRight.innerText = '';
+
                 // Set the inactive class
-                apiStateSummary.classList.add('inactive');
-                apiStateSummary.classList.remove('active');
+                apiAuthSummary.classList.add('inactive');
+                apiAuthSummary.classList.remove('active');
             }
         }
 
         async function updateTableAsyncBatch(users, batchSize = 25) {
             console.log(`Updating table for ${users.length} user(s)`);
-        
+
             const userBatches = [];
-        
+
             // Split users into batches
             for (let i = 0; i < users.length; i += batchSize) {
                 userBatches.push(users.slice(i, i + batchSize));
             }
-        
+
             for (const batch of userBatches) {
                 await Promise.all(batch.map(async (user) => {
                     var row = followersTable.row((idx, data) => data[8] === user.x_id);
@@ -900,8 +994,8 @@ To blaze through removal, double-click the checkbox of a follower. Hit Space to 
             });
         });
         $(document).ready(function() {
-            // Update API state summary
-            updateAPIStateSummary(db.apiState, cursor);
+            // Update API data summary
+            updateAuthDataSummary();
         });
     </script>
     <!-- Event listeners -->
@@ -917,7 +1011,7 @@ To blaze through removal, double-click the checkbox of a follower. Hit Space to 
                         () => {
                             console.log("Table updated with new users")
                             cursor.push(parseCursorsFromResponse(followers));
-                            updateAPIStateSummary(db.apiState, cursor);
+                            updateAuthDataSummary();
                         }
                     );
                 });
@@ -929,18 +1023,9 @@ To blaze through removal, double-click the checkbox of a follower. Hit Space to 
                 event.preventDefault(); // Prevent the default form submission
                 var js = js_editor.getValue();
                 try {
-                    var parsed = parseFetchFollowerFunction(js);
-                    if (
-                        (parsed.request.params.variables.userId === "987654321")
-                        && (parsed.request.query_id === "123xyz456cba789")
-                        && (parsed.func.options.headers.authorization === "456def")
-                        && (parsed.func.options.headers['x-csrf-token'] === "abc123")
-                    ) {
-                        alert("Please replace the placeholder function.");
-                        return;
-                    }
-                    db.setAPIState(parsed, true);
-                    updateAPIStateSummary(db.apiState, cursor);
+                    auth = AuthenticationData.fromRemoveFollowerFetchNodeJsCode(js);
+                    auth.setStorage();
+                    updateAuthDataSummary();
                 } catch (e) {
                     console.log(e);
                     alert("Invalid JavaScript: " + e);
@@ -1009,10 +1094,11 @@ To blaze through removal, double-click the checkbox of a follower. Hit Space to 
         });
 
         $(document).ready(function() {
-            // Reset API state button
-            $('#resetAPIStateButton').click(function() {
-                db.setAPIState({}, true);
-                updateAPIStateSummary(db.apiState, cursor);
+            // Reset API data button
+            $('#resetAuthButton').click(function() {
+                auth = null;
+                AuthenticationData.clearStorage();
+                updateAuthDataSummary();
             });
         });
 

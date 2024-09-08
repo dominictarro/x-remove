@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import sys
@@ -6,6 +7,8 @@ from typing import TypedDict
 import flask
 import httpx
 from flask import request, jsonify
+
+from x_remove.api_details_refresher import XDotComAPIDetailsRefresher, APIOperation, api_details_lookup
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -18,9 +21,14 @@ file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logging.getLogger("root").addHandler(file_handler)
 
+
+# Start the refresher daemon
+refresher = XDotComAPIDetailsRefresher(interval=datetime.timedelta(hours=6))
+refresher.start()
+
+
 class RemoveRequest(TypedDict):
     user_id: str
-    query_id: str
     target_user_id: str
     headers: dict
 
@@ -48,20 +56,21 @@ def remove_follower():
     for field in RemoveRequest.__required_keys__:
         if field not in data:
             logging.info(f"Rejecting request due to missing required parameter {field}")
-            return jsonify({"error": f"Missing required parameter {field}", "target_user_id": data["target_user_id"], "user_id": data["user_id"]}), 400
+            return jsonify({"error": f"Missing required parameter {field}", "target_user_id": data.get("target_user_id"), "user_id": data.get("user_id")}), 400
 
     for header_to_remove in ("Origin", "Referer",):
         if header_to_remove in data["headers"]:
             data["headers"].pop(header_to_remove)
 
     data["headers"]["User-Agent"] = request.headers["User-Agent"]
-    url = f"https://x.com/i/api/graphql/{data['query_id']}/RemoveFollower"
+    query_id = api_details_lookup[APIOperation.REMOVE_FOLLOWER]["queryId"]
+    url = f"https://x.com/i/api/graphql/{query_id}/RemoveFollower"
     payload = {
         "variables": {"target_user_id": str(data["target_user_id"])},
-        "queryId": data["query_id"],
+        "queryId": query_id,
     }
     logging.info(f"Requesting X remove follower {data['target_user_id']} from {data['user_id']}")
-    # return jsonify({"message": "Follower removed successfully", "target_user_id": data["target_user_id"]}), 200
+
     try:
         r = httpx.post(
             url,
@@ -81,7 +90,6 @@ def remove_follower():
 
 class ListRequest(TypedDict):
     user_id: str
-    query_id: str
     headers: dict
     cursor: str | None = None
     count: int = 20
@@ -93,7 +101,8 @@ def list_followers():
 
     data["headers"]["User-Agent"] = request.headers["User-Agent"]
 
-    url = f"https://x.com/i/api/graphql/{data['query_id']}/Followers"
+    query_id = api_details_lookup[APIOperation.LIST_FOLLOWERS]["queryId"]
+    url = f"https://x.com/i/api/graphql/{query_id}/Followers"
 
     payload = {
         "variables": {
@@ -135,7 +144,6 @@ def list_followers():
     payload["variables"] = json.dumps(payload["variables"])
     payload["features"] = json.dumps(payload["features"])
     try:
-        # logging.info(f"{url}\n{payload}\n{data['headers']}\n{data.get('cookies')}")
         rq = httpx.Request("GET", url, params=payload, headers=data["headers"], cookies=parse_cookies(data.get("cookies")) or request.cookies)
         logging.info(
             str(rq.url)
