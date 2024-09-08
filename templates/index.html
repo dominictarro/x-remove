@@ -751,14 +751,25 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
             </div>
         </div>
         <br>
-        <div>
-            <label for="verified-filter">Has Twitter Blue:</label>
-            <br>
-            <select id="verified-filter">
-                <option value="*">Not Selected</option>
-                <option value="true">True</option>
-                <option value="false">False</option>
-            </select>
+        <div id="filterSection" style="display: inline-flex; align-items: center; justify-content: space-between;">
+            <div style="padding-right: 10px;">
+                <label for="verified-filter">Has Twitter Blue:</label>
+                <br>
+                <select id="verified-filter">
+                    <option value="*">Not Selected</option>
+                    <option value="true">True</option>
+                    <option value="false">False</option>
+                </select>
+            </div>
+            <div>
+                <label for="graduated-filter">Has Graduated Access:</label>
+                <br>
+                <select id="graduated-filter">
+                    <option value="*">Not Selected</option>
+                    <option value="true">True</option>
+                    <option value="false">False</option>
+                </select>
+            </div>
         </div>
         <table id="followersTable" class="striped highlight">
             <thead>
@@ -767,9 +778,9 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
                     <th></th>
                     <th>Name</th>
                     <th>Verified</th>
-                    <th>Screen Name</th>
-                    <th>Followers Count</th>
-                    <th>Following Count</th>
+                    <th>Handle</th>
+                    <th>Followers</th>
+                    <th>Following</th>
                     <th>Created At</th>
                 </tr>
             </thead>
@@ -808,6 +819,7 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
     </script>
     <script>
         $.fn.dataTable.ext.order['verified-sort'] = customVerifiedSort;
+        $.fn.dataTable.ext.order['checked-sort'] = customCheckedSort;
         var followersTable = $('#followersTable').DataTable({
             // https://datatables.net/reference/option/
             scrollY: '56vh',
@@ -815,7 +827,7 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
             autoWidth: true,
             columnDefs: [
                 // https://datatables.net/reference/option/columnDefs
-                { width: '6%', targets: 0, searchable: false, className: 'select-checkbox' }, // Checkbox column
+                { width: '6%', targets: 0, searchable: false, orderDataType: 'checked-sort' }, // Checkbox column
                 { width: '6%', targets: 1, searchable: false, orderable: false }, // Profile picture column
                 { width: '28%', targets: 2 }, // Name column
                 { width: '5%', targets: 3, searchable: false, orderDataType: 'verified-sort' },  // Verified column
@@ -823,10 +835,15 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
                 { width: '10%', targets: 5, searchable: false }, // Followers count column
                 { width: '10%', targets: 6, searchable: false }, // Friends count column
                 { width: '15%', targets: 7, searchable: false },  // Created at column
-                { width: '0%', targets: 8, visible: false } // rest_id column
+                { width: '0%', targets: 8, visible: false }, // rest_id column
+                { width: '0%', targets: 9, visible: false }, // has_graduated_access column
             ],
-            order: [[2, 'asc']],
-            dom: '<"top"f>rt<"bottom"ip><"clear">', // Move the search bar to the left
+            order: [[7, 'desc']],
+            layout: {
+                topStart: 'info',
+                topEnd: null,
+                bottomStart: null,
+            }
         });
 
         // Table functions
@@ -847,6 +864,13 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
             return this.api().column(col, { order: 'index' }).nodes().map(function(td, i) {
                 // Check if the cell contains an SVG element
                 return $('svg', td).length ? 0 : 1;
+            });
+        }
+
+        function customCheckedSort(settings, col) {
+            return this.api().column(col, { order: 'index' }).nodes().map(function(td, i) {
+                // Check if the cell contains an input element
+                return $('input', td).prop('checked') ? 0 : 1;
             });
         }
 
@@ -920,7 +944,8 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
                             user.followers_count,
                             user.friends_count,
                             user.created_at,
-                            user.x_id
+                            user.x_id,
+                            user.has_graduated_access
                         ]);
                     } else {
                         if (user.is_removed) {
@@ -936,55 +961,13 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
                             user.followers_count,
                             user.friends_count,
                             user.created_at,
-                            user.x_id
+                            user.x_id,
+                            user.has_graduated_access
                         ]);
                     }
                 }));
             }
             followersTable.draw();
-        }
-
-        function updateTable(users) {
-            console.log(`Updating table with ${users.length} user(s)`);
-            users.forEach(user => {
-                var row = followersTable.row((idx, data) => data[8] === user.x_id);
-                var data = row.data();
-                if (data) {
-                    if (user.is_removed) {
-                        // Remove row
-                        row.remove().draw();
-                        return;
-                    }
-                    // Update existing row
-                    row.data([
-                        data[0],
-                        mk_pfp_url(user),
-                        user.name,
-                        getVerifiedCheckmark(user.is_blue_verified),
-                        "@" + user.screen_name,
-                        user.followers_count,
-                        user.friends_count,
-                        user.created_at,
-                        user.x_id
-                    ]).draw();
-                } else {
-                    if (user.is_removed) {
-                        return;
-                    }
-                    // Add new row
-                    followersTable.row.add([
-                        `<label><input type="checkbox" name="row-checkbox" value=false><span></span></label>`,
-                        mk_pfp_url(user),
-                        user.name,
-                        getVerifiedCheckmark(user.is_blue_verified),
-                        "@" + user.screen_name,
-                        user.followers_count,
-                        user.friends_count,
-                        user.created_at,
-                        user.x_id
-                    ]).draw();
-                }
-            }); 
         }
 
         $(document).ready(function() {
@@ -1051,6 +1034,27 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
                     function(searchVal, row) {
                         var cell = row.at(3);
                         return $(cell).attr("is_verified") === filterValue;
+                    }
+                ).draw();
+            });
+        });
+
+        $(document).ready(function() {
+            // Add filter for Check column. Just filters based on whether the checkbox is ticked.
+            $('#graduated-filter').on('change', function() {
+                var filterValue = $(this).val();
+                console.log("Filtering verified: ", filterValue);
+                if (filterValue === "*") {
+                    followersTable.column(9).search("").draw();
+                    return;
+                } else if (filterValue !== "true" && filterValue !== "false") {
+                    error("Invalid filter value: ", filterValue);
+                    return;
+                }
+                var filterBool = filterValue === "true";
+                followersTable.column(9).search(
+                    function(searchVal, row) {
+                        return row.at(9) === filterBool;
                     }
                 ).draw();
             });
