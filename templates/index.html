@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,7 +11,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/material.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/lint/lint.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/fold/foldgutter.min.css">
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/fold/foldgutter.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/lint/lint.min.js"></script>
@@ -30,335 +32,335 @@
 
     <!-- Auth data -->
     <script>
-    const AUTH_DATA_KEY = "auth-data";
+        const AUTH_DATA_KEY = "auth-data";
 
-    class AuthenticationData {
-        constructor(user_id, headers, lastUpdated = null) {
-            this.user_id = user_id
-            this.headers = headers
-            this.lastUpdated = lastUpdated || new Date();
-        }
-
-        /**
-        * Parse the authentication data from the fetch function string.
-        * @param {string} fetchFunctionString - The fetch function string.
-        * @returns {AuthenticationData} - The authentication data object.
-        */
-        static fromRemoveFollowerFetchNodeJsCode(fetchFunctionString) {
-            const parsedFn = parseFetchFollowerFunction(fetchFunctionString);
-            var obj = new AuthenticationData(
-                getUserIdCookie(parsedFn.func.options.headers.cookie),
-                parsedFn.func.options.headers
-            );
-            return obj;
-        }
-
-        setStorage() {
-            localStorage.setItem(
-                AUTH_DATA_KEY,
-                JSON.stringify(this)
-            );
-        }
-
-        updateFromJSON(jsonData) {
-            const data = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
-
-            for (const [key, value] of Object.entries(data)) {
-                if (this.hasOwnProperty(key)) {
-                    this[key] = value;
-                }
+        class AuthenticationData {
+            constructor(user_id, headers, lastUpdated = null) {
+                this.user_id = user_id
+                this.headers = headers
+                this.lastUpdated = lastUpdated || new Date();
             }
-        }
 
-        getCookiesObject() {
-            // Parse the cookies from the headers
-            const cookies = this.headers.cookie.split(';').map(cookie => cookie.trim());
-            return Object.fromEntries(cookies.map(cookie => cookie.split('=')));
-        }
+            /**
+            * Parse the authentication data from the fetch function string.
+            * @param {string} fetchFunctionString - The fetch function string.
+            * @returns {AuthenticationData} - The authentication data object.
+            */
+            static fromRemoveFollowerFetchNodeJsCode(fetchFunctionString) {
+                const parsedFn = parseFetchFollowerFunction(fetchFunctionString);
+                var obj = new AuthenticationData(
+                    getUserIdCookie(parsedFn.func.options.headers.cookie),
+                    parsedFn.func.options.headers
+                );
+                return obj;
+            }
 
-        /**
-        * Load the authentication data from local storage.
-        * @returns {AuthenticationData} - The authentication data object.
-        */
-        static fromStorage() {
-            var authData = localStorage.getItem(AUTH_DATA_KEY);
-            if (authData) {
-                authData = JSON.parse(authData);
-                if (new Date() - new Date(authData.lastUpdated) > 24 * 60 * 60 * 1000) {
-                    return null;
-                }
-                return new AuthenticationData(
-                    authData.user_id,
-                    authData.headers,
-                    new Date(authData.lastUpdated)
+            setStorage() {
+                localStorage.setItem(
+                    AUTH_DATA_KEY,
+                    JSON.stringify(this)
                 );
             }
-            return null;
-        }
 
-        static clearStorage() {
-            localStorage.removeItem(AUTH_DATA_KEY);
-        }
-    }
+            updateFromJSON(jsonData) {
+                const data = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
 
-    /**
-    * Parse the 'twid' value from the cookie string.
-    * @param {string} cookie - The cookie string.
-    * @returns {string|null} - The parsed 'twid' value or null if not found.
-    */
-    function getUserIdCookie(cookie) {
-        const match = cookie.match(/twid=u%3D(\d+)/);
-        return match ? match[1] : null;
-    }
-
-    function formatCookies(cookies) {
-        return Object.entries(cookies)
-        .map(([key, value]) => {
-            if (typeof value === 'string') {
-                return `${key}="${value.replace(/"/g, '\\"')}"`;
+                for (const [key, value] of Object.entries(data)) {
+                    if (this.hasOwnProperty(key)) {
+                        this[key] = value;
+                    }
+                }
             }
-            return `${key}=${String(value)}`;
-        })
-        .join('; ');
-    }
 
-    /**
-    * Parse the fetch followers function string to get the URL, variables, features, headers, referrer, referrerPolicy, body, method, mode, and credentials.
-    * @param {string} fetchFunctionString - The fetch function string.
-    * @returns {object} - The parsed fetch function object 
-    * 
-    */
-    function parseFetchFollowerFunction(fetchFunctionString) {
-        const parsedFn = fetchFunctionString.match(/(?<fn>[a-zA-Z_]*[a-zA-Z0-9_]*)\(\s*["'`](?<url>[^"'`]*?)["'`]\s*,\s*(?<options>\{.*\})\s*\)/s).groups;
-        return {
-            func: {
-                name: parsedFn.fn,
-                url: parsedFn.url,
-                // options: Object.fromEntries(parsedFn.options.split(',').map(opt => opt.split(':').map(val => val.trim())))
-                options: JSON.parse(parsedFn.options),
-            },
-            request: parseFollowersURL(parsedFn.url)
-        }
-    }
-
-    /**
-    * Parse the fetch URL to get the URL, variables, and features.
-    * @param {string} fetchUrl - The fetch URL.
-    * @returns {object} - The parsed fetch URL object with the URL, variables, and features.
-    * 
-    * @example
-    * const fetchUrl = "https://api.twitter.com/graphql?variables=%7B%22userId%22%3A%22123456789%22%7D&features=%5B%22user%22%5D";
-    * const parsedFetchURL = parseFetchURL(fetchUrl);
-    * console.log(parsedFetchURL);
-    * // {
-    * //     url: "https://api.twitter.com/graphql",
-    * //     params: {
-    * //         variables: { userId: "123456789" },
-    * //         features: ["user"]
-    * //     }
-    * // }
-    */
-    function parseFetchURL(fetchUrl) {
-        const urlObj = new URL(fetchUrl);
-
-        const variablesParam = urlObj.searchParams.get("variables");
-        const featuresParam = urlObj.searchParams.get("features");
-
-        var variables = {};
-        if (variablesParam !== null) {
-            const decodedVariables = decodeURIComponent(variablesParam);
-            variables = JSON.parse(decodedVariables)
-        }
-
-        var features = [];
-        if (featuresParam !== null) {
-            const decodedFeatures = decodeURIComponent(featuresParam);
-            features = JSON.parse(decodedFeatures);
-        }
-
-        return {
-            url: urlObj.origin + urlObj.pathname,
-            params: {
-                variables: variables,
-                features: features,
-                other: urlObj.searchParams
+            getCookiesObject() {
+                // Parse the cookies from the headers
+                const cookies = this.headers.cookie.split(';').map(cookie => cookie.trim());
+                return Object.fromEntries(cookies.map(cookie => cookie.split('=')));
             }
-        };
-    }
 
-    /**
-    * Parse the followers URL to get the URL.
-    * @param {string} followersUrl - The followers URL.
-    * @returns {object} - The parsed followers URL object with the URL, variables, and features.
-    *
-    * @example
-    * const followersUrl = "https://api.twitter.com/graphql/123456789/Followers?variables=%7B%22userId%22%3A%22123456789%22%7D&features=%5B%22user%22%5D";
-    * const parsedFollowersURL = parseFollowersURL(followersUrl);
-    * console.log(parsedFollowersURL);
-    * // {
-    * //     url: "https://api.twitter.com/graphql",
-    * //     params: {
-    * //         variables: { userId: "123456789" },
-    * //         features: ["user"]
-    * //     }
-    * // }
-    */
-    function parseFollowersURL(followersUrl) {
-        var urlObj = parseFetchURL(followersUrl);
-        return urlObj;
-    }
+            /**
+            * Load the authentication data from local storage.
+            * @returns {AuthenticationData} - The authentication data object.
+            */
+            static fromStorage() {
+                var authData = localStorage.getItem(AUTH_DATA_KEY);
+                if (authData) {
+                    authData = JSON.parse(authData);
+                    if (new Date() - new Date(authData.lastUpdated) > 24 * 60 * 60 * 1000) {
+                        return null;
+                    }
+                    return new AuthenticationData(
+                        authData.user_id,
+                        authData.headers,
+                        new Date(authData.lastUpdated)
+                    );
+                }
+                return null;
+            }
 
-    var auth = null;
+            static clearStorage() {
+                localStorage.removeItem(AUTH_DATA_KEY);
+            }
+        }
 
-    $(document).ready(function() {
-        // Initialize the database
-        auth = AuthenticationData.fromStorage();
-    });
+        /**
+        * Parse the 'twid' value from the cookie string.
+        * @param {string} cookie - The cookie string.
+        * @returns {string|null} - The parsed 'twid' value or null if not found.
+        */
+        function getUserIdCookie(cookie) {
+            const match = cookie.match(/twid=u%3D(\d+)/);
+            return match ? match[1] : null;
+        }
+
+        function formatCookies(cookies) {
+            return Object.entries(cookies)
+                .map(([key, value]) => {
+                    if (typeof value === 'string') {
+                        return `${key}="${value.replace(/"/g, '\\"')}"`;
+                    }
+                    return `${key}=${String(value)}`;
+                })
+                .join('; ');
+        }
+
+        /**
+        * Parse the fetch followers function string to get the URL, variables, features, headers, referrer, referrerPolicy, body, method, mode, and credentials.
+        * @param {string} fetchFunctionString - The fetch function string.
+        * @returns {object} - The parsed fetch function object 
+        * 
+        */
+        function parseFetchFollowerFunction(fetchFunctionString) {
+            const parsedFn = fetchFunctionString.match(/(?<fn>[a-zA-Z_]*[a-zA-Z0-9_]*)\(\s*["'`](?<url>[^"'`]*?)["'`]\s*,\s*(?<options>\{.*\})\s*\)/s).groups;
+            return {
+                func: {
+                    name: parsedFn.fn,
+                    url: parsedFn.url,
+                    // options: Object.fromEntries(parsedFn.options.split(',').map(opt => opt.split(':').map(val => val.trim())))
+                    options: JSON.parse(parsedFn.options),
+                },
+                request: parseFollowersURL(parsedFn.url)
+            }
+        }
+
+        /**
+        * Parse the fetch URL to get the URL, variables, and features.
+        * @param {string} fetchUrl - The fetch URL.
+        * @returns {object} - The parsed fetch URL object with the URL, variables, and features.
+        * 
+        * @example
+        * const fetchUrl = "https://api.twitter.com/graphql?variables=%7B%22userId%22%3A%22123456789%22%7D&features=%5B%22user%22%5D";
+        * const parsedFetchURL = parseFetchURL(fetchUrl);
+        * console.log(parsedFetchURL);
+        * // {
+        * //     url: "https://api.twitter.com/graphql",
+        * //     params: {
+        * //         variables: { userId: "123456789" },
+        * //         features: ["user"]
+        * //     }
+        * // }
+        */
+        function parseFetchURL(fetchUrl) {
+            const urlObj = new URL(fetchUrl);
+
+            const variablesParam = urlObj.searchParams.get("variables");
+            const featuresParam = urlObj.searchParams.get("features");
+
+            var variables = {};
+            if (variablesParam !== null) {
+                const decodedVariables = decodeURIComponent(variablesParam);
+                variables = JSON.parse(decodedVariables)
+            }
+
+            var features = [];
+            if (featuresParam !== null) {
+                const decodedFeatures = decodeURIComponent(featuresParam);
+                features = JSON.parse(decodedFeatures);
+            }
+
+            return {
+                url: urlObj.origin + urlObj.pathname,
+                params: {
+                    variables: variables,
+                    features: features,
+                    other: urlObj.searchParams
+                }
+            };
+        }
+
+        /**
+        * Parse the followers URL to get the URL.
+        * @param {string} followersUrl - The followers URL.
+        * @returns {object} - The parsed followers URL object with the URL, variables, and features.
+        *
+        * @example
+        * const followersUrl = "https://api.twitter.com/graphql/123456789/Followers?variables=%7B%22userId%22%3A%22123456789%22%7D&features=%5B%22user%22%5D";
+        * const parsedFollowersURL = parseFollowersURL(followersUrl);
+        * console.log(parsedFollowersURL);
+        * // {
+        * //     url: "https://api.twitter.com/graphql",
+        * //     params: {
+        * //         variables: { userId: "123456789" },
+        * //         features: ["user"]
+        * //     }
+        * // }
+        */
+        function parseFollowersURL(followersUrl) {
+            var urlObj = parseFetchURL(followersUrl);
+            return urlObj;
+        }
+
+        var auth = null;
+
+        $(document).ready(function () {
+            // Initialize the database
+            auth = AuthenticationData.fromStorage();
+        });
     </script>
 
     <!-- Local storage -->
     <script>
-    const FOLLOWER_DATABASE_KEY = "followerDatabase";
+        const FOLLOWER_DATABASE_KEY = "followerDatabase";
 
-    class Database {
-        constructor() {
-            this.followers = {};
-            this.lastUpdated = new Date().toISOString();
-        }
-
-        /**
-        * Create a new follower database in local storage. Overwrites the existing database.
-        * @returns {object} - The new database object.
-        */
-        static createDatabase() {
-            let new_db = new Database();
-            localStorage.setItem(
-                FOLLOWER_DATABASE_KEY,
-                JSON.stringify(new_db)
-            );
-            return new_db;
-        }
-
-        updateFromJSON(jsonData) {
-            const data = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
-            
-            for (const [key, value] of Object.entries(data)) {
-              if (this.hasOwnProperty(key)) {
-                this[key] = value;
-              }
-            }
-          }
-
-        /**
-        * Load the follower database from local storage. If it doesn't exist, create a new database. If the database is older than 24 hours, create a new database.
-        * @returns {object} - The follower database object.
-        */
-        static fromStorage() {
-            var db_obj = localStorage.getItem(FOLLOWER_DATABASE_KEY);
-            if (db_obj) {
-                db_obj = JSON.parse(db_obj);
-                // If the database is older than 24 hours, create a new database
-                if (new Date() - new Date(db_obj.lastUpdated) > 24 * 60 * 60 * 1000) {
-                    return this.createDatabase();
-                }
-                db = new Database();
-                db.updateFromJSON(db_obj);
-                return db;
-            }
-            return this.createDatabase();
-        }
-
-        setDatabase(update_time = true) {
-            if (update_time) {
+        class Database {
+            constructor() {
+                this.followers = {};
                 this.lastUpdated = new Date().toISOString();
             }
-            localStorage.setItem(
-                FOLLOWER_DATABASE_KEY,
-                JSON.stringify(this)
-            );
-        }
 
-        /**
-        * Add a follower to the follower database. Overwrites the existing follower if it exists.
-        * @param {object} follower - The follower object.
-        */
-        addFollower(follower, update_storage = true) {
-            this.followers[follower.x_id] = follower;
-            if (update_storage) {
-                this.setDatabase();
+            /**
+            * Create a new follower database in local storage. Overwrites the existing database.
+            * @returns {object} - The new database object.
+            */
+            static createDatabase() {
+                let new_db = new Database();
+                localStorage.setItem(
+                    FOLLOWER_DATABASE_KEY,
+                    JSON.stringify(new_db)
+                );
+                return new_db;
             }
-        }
 
-        /**
-        * Remove a follower from the follower database.
-        * @param {string} x_id - The follower's X ID.
-        */
-        removeFollower(x_id) {
-            this.followers.removeItem(x_id);
-            this.setDatabase();
-        }
+            updateFromJSON(jsonData) {
+                const data = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
 
-        /**
-        * Get all followers from the follower database.
-        * @returns {object} - The followers object.
-        * @param {boolean} retain_is_removed - Whether to retain the existing is_removed attribute if overwriting.
-        * @param {boolean} update_storage - Whether to update the local storage after adding the follower.
-        */
-        upsertFollower(follower, retain_is_removed = false, update_storage = true) {
-            if (this.followers.hasOwnProperty(follower.x_id)) {
-                if (retain_is_removed) {
-                    follower.is_removed = this.followers[follower.x_id].is_removed;
+                for (const [key, value] of Object.entries(data)) {
+                    if (this.hasOwnProperty(key)) {
+                        this[key] = value;
+                    }
                 }
-                for (const [key, value] of Object.entries(follower)) {
-                    this.followers[follower.x_id][key] = value;
+            }
+
+            /**
+            * Load the follower database from local storage. If it doesn't exist, create a new database. If the database is older than 24 hours, create a new database.
+            * @returns {object} - The follower database object.
+            */
+            static fromStorage() {
+                var db_obj = localStorage.getItem(FOLLOWER_DATABASE_KEY);
+                if (db_obj) {
+                    db_obj = JSON.parse(db_obj);
+                    // If the database is older than 24 hours, create a new database
+                    if (new Date() - new Date(db_obj.lastUpdated) > 24 * 60 * 60 * 1000) {
+                        return this.createDatabase();
+                    }
+                    db = new Database();
+                    db.updateFromJSON(db_obj);
+                    return db;
                 }
-            } else {
+                return this.createDatabase();
+            }
+
+            setDatabase(update_time = true) {
+                if (update_time) {
+                    this.lastUpdated = new Date().toISOString();
+                }
+                localStorage.setItem(
+                    FOLLOWER_DATABASE_KEY,
+                    JSON.stringify(this)
+                );
+            }
+
+            /**
+            * Add a follower to the follower database. Overwrites the existing follower if it exists.
+            * @param {object} follower - The follower object.
+            */
+            addFollower(follower, update_storage = true) {
                 this.followers[follower.x_id] = follower;
+                if (update_storage) {
+                    this.setDatabase();
+                }
             }
-            if (update_storage) {
+
+            /**
+            * Remove a follower from the follower database.
+            * @param {string} x_id - The follower's X ID.
+            */
+            removeFollower(x_id) {
+                this.followers.removeItem(x_id);
                 this.setDatabase();
             }
-        }
 
-        /**
-        * Add multiple followers to the follower database. Overwrites the existing followers if they exist.
-        * @param {object} followers - The followers object.
-        * @param {boolean} retain_is_removed - Whether to retain the existing is_removed attribute if overwriting.
-        * @param {boolean} update_storage - Whether to update the local storage after adding the followers.
-        */
-        upsertFollowers(followers, retain_is_removed = false, update_storage = true) {
-            followers.forEach(follower => {
-                this.upsertFollower(follower, retain_is_removed, false);
-            });
-            if (update_storage) {
-                this.setDatabase();
+            /**
+            * Get all followers from the follower database.
+            * @returns {object} - The followers object.
+            * @param {boolean} retain_is_removed - Whether to retain the existing is_removed attribute if overwriting.
+            * @param {boolean} update_storage - Whether to update the local storage after adding the follower.
+            */
+            upsertFollower(follower, retain_is_removed = false, update_storage = true) {
+                if (this.followers.hasOwnProperty(follower.x_id)) {
+                    if (retain_is_removed) {
+                        follower.is_removed = this.followers[follower.x_id].is_removed;
+                    }
+                    for (const [key, value] of Object.entries(follower)) {
+                        this.followers[follower.x_id][key] = value;
+                    }
+                } else {
+                    this.followers[follower.x_id] = follower;
+                }
+                if (update_storage) {
+                    this.setDatabase();
+                }
             }
+
+            /**
+            * Add multiple followers to the follower database. Overwrites the existing followers if they exist.
+            * @param {object} followers - The followers object.
+            * @param {boolean} retain_is_removed - Whether to retain the existing is_removed attribute if overwriting.
+            * @param {boolean} update_storage - Whether to update the local storage after adding the followers.
+            */
+            upsertFollowers(followers, retain_is_removed = false, update_storage = true) {
+                followers.forEach(follower => {
+                    this.upsertFollower(follower, retain_is_removed, false);
+                });
+                if (update_storage) {
+                    this.setDatabase();
+                }
+            }
+
+            /**
+            * Get all existing followers from the follower database.
+            * @returns {object} - The followers object.
+            */
+            getNonRemovedFollowers() {
+                return Object.values(this.followers).filter(f => !f.is_removed);
+            }
+
+            /**
+            * Get all removed followers from the follower database.
+            * @returns {object} - The followers object.
+            */
+            getRemovedFollowers() {
+                return Object.values(this.followers).filter(f => f.is_removed);
+            }
+
         }
 
-        /**
-        * Get all existing followers from the follower database.
-        * @returns {object} - The followers object.
-        */
-        getNonRemovedFollowers() {
-            return Object.values(this.followers).filter(f => !f.is_removed);
-        }
+        var db = null;
 
-        /**
-        * Get all removed followers from the follower database.
-        * @returns {object} - The followers object.
-        */
-        getRemovedFollowers() {
-            return Object.values(this.followers).filter(f => f.is_removed);
-        }
-
-    }
-
-    var db = null;
-
-    $(document).ready(function() {
-        // Initialize the database
-        var db = Database.fromStorage();
-    });
+        $(document).ready(function () {
+            // Initialize the database
+            var db = Database.fromStorage();
+        });
     </script>
 
     <!-- Cursor state (local storage) -->
@@ -399,19 +401,19 @@
 
             getNextSortIndex() {
                 var cur = this.current();
-                if (!cur) {return null;}
-                return cur.bottom ? cur.bottom.value: null;
+                if (!cur) { return null; }
+                return cur.bottom ? cur.bottom.value : null;
             }
 
             getPrevSortIndex() {
                 var cur = this.current();
-                if (!cur) {return null;}
-                return cur.top ? cur.top.value: null;
+                if (!cur) { return null; }
+                return cur.top ? cur.top.value : null;
             }
         }
 
         var cursor = null;
-        $(document).ready(function() {
+        $(document).ready(function () {
             // Initialize the cursor
             cursor = CursorState.fromStorage();
         });
@@ -419,101 +421,101 @@
     </script>
 
     <!-- X Followers -->
-     <script>
-    
-    class XFollower {
-        constructor(
-            x_id,
-            name,
-            screen_name,
-            followers_count,
-            friends_count,
-            has_graduated_access,
-            is_blue_verified,
-            following,
-            profile_image_url_https,
-            created_at,
-            is_removed
-        ) {
-            this.x_id = x_id;
-            this.name = name;
-            this.screen_name = screen_name;
-            this.followers_count = followers_count;
-            this.friends_count = friends_count;
-            this.has_graduated_access = has_graduated_access;
-            this.is_blue_verified = is_blue_verified;
-            this.following = following;
-            this.profile_image_url_https = profile_image_url_https;
-            this.created_at = created_at;
-            this.is_removed = is_removed;
+    <script>
+
+        class XFollower {
+            constructor(
+                x_id,
+                name,
+                screen_name,
+                followers_count,
+                friends_count,
+                has_graduated_access,
+                is_blue_verified,
+                following,
+                profile_image_url_https,
+                created_at,
+                is_removed
+            ) {
+                this.x_id = x_id;
+                this.name = name;
+                this.screen_name = screen_name;
+                this.followers_count = followers_count;
+                this.friends_count = friends_count;
+                this.has_graduated_access = has_graduated_access;
+                this.is_blue_verified = is_blue_verified;
+                this.following = following;
+                this.profile_image_url_https = profile_image_url_https;
+                this.created_at = created_at;
+                this.is_removed = is_removed;
+            }
+
+            /**
+            * Create a new XFollower object from an 'entry' JSON object from the Twitter API.
+            * @param {object} entry - The JSON object.
+            * @returns {XFollower} - The XFollower object.
+            */
+            static fromEntryJSON(entry) {
+                if (entry.content.cursorType) {
+                    return null;
+                }
+                const user = entry.content.itemContent.user_results.result;
+                const legacy = user.legacy;
+                return new XFollower(
+                    user.rest_id,
+                    legacy.name,
+                    legacy.screen_name,
+                    legacy.followers_count,
+                    legacy.friends_count,
+                    user.has_graduated_access,
+                    user.is_blue_verified || legacy.verified,
+                    legacy.following,
+                    legacy.profile_image_url_https.replace("_normal", "_400x400"),
+                    transformDateTime(legacy.created_at),
+                    false
+                );
+            }
+
+            /**
+            * Create many new XFollower objects from an array of 'entry' JSON objects from the Twitter API.
+            * @param {list[object]} entries - The JSON objects.
+            * @returns {list} - The XFollower objects.
+            */
+            static manyFromEntryJSON(entries) {
+                return entries.map(entry => XFollower.fromEntryJSON(entry)).filter(x => x !== null);
+            }
         }
 
         /**
-        * Create a new XFollower object from an 'entry' JSON object from the Twitter API.
-        * @param {object} entry - The JSON object.
-        * @returns {XFollower} - The XFollower object.
+        * Parse the followers from the Twitter API response.
+        * @param {object} response - The Twitter API response object.
+        * @returns {list} - The XFollower objects.
         */
-        static fromEntryJSON(entry) {
-            if (entry.content.cursorType) {
-                return null;
-            }
-            const user = entry.content.itemContent.user_results.result;
-            const legacy = user.legacy;
-            return new XFollower(
-                user.rest_id,
-                legacy.name,
-                legacy.screen_name,
-                legacy.followers_count,
-                legacy.friends_count,
-                user.has_graduated_access,
-                user.is_blue_verified || legacy.verified,
-                legacy.following,
-                legacy.profile_image_url_https.replace("_normal", "_400x400"),
-                transformDateTime(legacy.created_at),
-                false
+        function parseFromTwitterFollowersResponse(response) {
+            return XFollower.manyFromEntryJSON(
+                response.data.user.result.timeline.timeline.instructions.slice(-1)[0].entries
             );
         }
 
         /**
-        * Create many new XFollower objects from an array of 'entry' JSON objects from the Twitter API.
-        * @param {list[object]} entries - The JSON objects.
-        * @returns {list} - The XFollower objects.
+        * Transform a datetime string to a date string.
+        * @param {string} datetimeStr - The datetime string.
+        * @returns {string} - The date string.
         */
-        static manyFromEntryJSON(entries) {
-            return entries.map(entry => XFollower.fromEntryJSON(entry)).filter(x => x !== null);
+        function transformDateTime(datetimeStr) {
+            // Parse the input datetime string
+            const date = new Date(datetimeStr);
+
+            // Extract year, month, and day
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+            const day = String(date.getDate()).padStart(2, '0');
+
+            // Format into YYYY-MM-DD
+            const formattedDate = `${year}-${month}-${day}`;
+
+            return formattedDate;
         }
-    }
-
-    /**
-    * Parse the followers from the Twitter API response.
-    * @param {object} response - The Twitter API response object.
-    * @returns {list} - The XFollower objects.
-    */
-    function parseFromTwitterFollowersResponse(response) {
-        return XFollower.manyFromEntryJSON(
-            response.data.user.result.timeline.timeline.instructions.slice(-1)[0].entries
-        );
-    }
-
-    /**
-    * Transform a datetime string to a date string.
-    * @param {string} datetimeStr - The datetime string.
-    * @returns {string} - The date string.
-    */
-    function transformDateTime(datetimeStr) {
-        // Parse the input datetime string
-        const date = new Date(datetimeStr);
-    
-        // Extract year, month, and day
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are zero-based
-        const day = String(date.getDate()).padStart(2, '0');
-    
-        // Format into YYYY-MM-DD
-        const formattedDate = `${year}-${month}-${day}`;
-    
-        return formattedDate;
-    }
     </script>
     <!-- X API methods -->
     <script>
@@ -566,7 +568,7 @@
         * @param {number} n - The number of followers to list.
         * @returns {boolean} - Whether the followers were listed successfully.
         */
-        async function listFollowers(n=50) {
+        async function listFollowers(n = 50) {
             if (!auth) {
                 alert("API authentication data is not set.");
                 return false;
@@ -644,45 +646,59 @@
             padding: 10px;
             border-radius: 6px;
         }
+
         table.dataTable thead th {
             background-color: #f5f5f5;
         }
+
         .container {
             padding-bottom: 20px;
         }
+
         .profile-pic {
             transition: transform 0.3s ease 0.2s;
         }
+
         .profile-pic:hover {
             transform: scale(2.5);
         }
+
         .api-auth-data-summary {
             /*background-color: rgb(24, 24, 24); /* Dark gray background */
-            border-radius: 4px; /* Rounded corners */
+            border-radius: 4px;
+            /* Rounded corners */
             padding: 10px;
-            font-size: 8pt; /* 8 pt font size */
-            font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif;
+            font-size: 8pt;
+            /* 8 pt font size */
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
             display: flex;
             justify-content: space-between;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
+
         .api-auth-data-summary.active {
             color: #ee6e73;
         }
+
         .api-auth-data-summary.inactive {
             color: #efa750;
         }
-        #apiAuthDataLeft, #apiAuthDataRight {
+
+        #apiAuthDataLeft,
+        #apiAuthDataRight {
             width: 48%;
         }
+
         #apiAuthDataLeft {
             text-align: left;
         }
+
         #apiAuthDataRight {
             text-align: right;
         }
-        </style>
+    </style>
 </head>
+
 <body>
     <div class="container">
         <h1 class="center-align">𝕏-remove</h1>
@@ -711,9 +727,12 @@ fetch(
                 </div>
             </form>
             <div class="center-align" style="display:flex; justify-content: space-between;">
-                <div><button  type="submit" id="extractAuth" class="btn waves-effect waves-light blue">Extract Auth</button></div>
-                <button type="submit" id="userAddButton" class="btn waves-effect waves-light blue">Load Followers</button>
-                <div><button type="button" id="resetAuthButton" class="btn waves-effect waves-light blue">Reset Auth</button></div>
+                <div><button type="submit" id="extractAuth" class="btn waves-effect waves-light blue">Extract
+                        Auth</button></div>
+                <button type="submit" id="userAddButton" class="btn waves-effect waves-light blue">Load
+                    Followers</button>
+                <div><button type="button" id="resetAuthButton" class="btn waves-effect waves-light blue">Reset
+                        Auth</button></div>
             </div>
             <br>
             <div id="apiAuthSummarySection">
@@ -721,32 +740,33 @@ fetch(
                     <div id="apiAuthDataLeft"></div>
                     <div id="apiAuthDataRight"></div>
                 </div>
-            </div>    
+            </div>
         </div>
 
         <!-- Tab 2 Content -->
         <div id="tab2" class="col s12" style="padding-bottom:2vw;">
             <div id="markdown-content" class="html cm-s-material CodeMirror CodeMirror-scroll">
                 <div style="margin: 7%;">
-Like lice removal but for bot followers on 𝕏.
+                    Like lice removal but for bot followers on 𝕏.
 
-##### How to use
+                    ##### How to use
 
-1. Open the developer console (F12), go to the "Network" tab, and open your followers page on 𝕏.
-1. Find the Fetch/XHR request to the "/Followers" endpoint.
-1. Right-click the request and copy the request as "fetch (Node.js)".
-1. Paste the copied fetch function into the 𝕏-remove text box in the Home tab.
-1. Click "Extract Auth" to extract the session details.
-1. Click "Load Followers" to load some followers.
-1. Tick boxes of followers to remove and click "Remove Selected Followers".
+                    1. Open the developer console (F12), go to the "Network" tab, and open your followers page on 𝕏.
+                    1. Find the Fetch/XHR request to the "/Followers" endpoint.
+                    1. Right-click the request and copy the request as "fetch (Node.js)".
+                    1. Paste the copied fetch function into the 𝕏-remove text box in the Home tab.
+                    1. Click "Extract Auth" to extract the session details.
+                    1. Click "Load Followers" to load some followers.
+                    1. Tick boxes of followers to remove and click "Remove Selected Followers".
 
-!!! warning !!!
+                    !!! warning !!!
 
-You can't undo follower removals. Don't muck it up.
+                    You can't undo follower removals. Don't muck it up.
 
-##### Pointers
+                    ##### Pointers
 
-To blaze through removal, double-click the checkbox of the first follower. Double tap TAB to go to the next follower and hit SPACE to tick the follower's removal box.
+                    To blaze through removal, double-click the checkbox of the first follower. Double tap TAB to go to
+                    the next follower and hit SPACE to tick the follower's removal box.
                 </div>
             </div>
         </div>
@@ -790,19 +810,20 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
         </table>
         <br>
         <div class="center-align">
-            <button id="removeFollowersButton" class="btn waves-effect waves-light red lighten-1">Remove Selected Followers</button>
+            <button id="removeFollowersButton" class="btn waves-effect waves-light red lighten-1">Remove Selected
+                Followers</button>
         </div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             var elems = document.querySelectorAll('.tabs');
             var instances = M.Tabs.init(elems);
         });
     </script>
     <div class="container"></div>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             M.AutoInit();
         });
 
@@ -813,7 +834,7 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
             theme: "material",
             gutters: ["CodeMirror-lint-markers", "CodeMirror-foldgutter"],
             lint: true,
-            extraKeys: {"Ctrl-Q": function(cm){ cm.foldCode(cm.getCursor()); }},
+            extraKeys: { "Ctrl-Q": function (cm) { cm.foldCode(cm.getCursor()); } },
         });
 
     </script>
@@ -861,14 +882,14 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
         }
 
         function customVerifiedSort(settings, col) {
-            return this.api().column(col, { order: 'index' }).nodes().map(function(td, i) {
+            return this.api().column(col, { order: 'index' }).nodes().map(function (td, i) {
                 // Check if the cell contains an SVG element
                 return $('svg', td).length ? 0 : 1;
             });
         }
 
         function customCheckedSort(settings, col) {
-            return this.api().column(col, { order: 'index' }).nodes().map(function(td, i) {
+            return this.api().column(col, { order: 'index' }).nodes().map(function (td, i) {
                 // Check if the cell contains an input element
                 return $('input', td).prop('checked') ? 0 : 1;
             });
@@ -970,21 +991,21 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
             followersTable.draw();
         }
 
-        $(document).ready(function() {
+        $(document).ready(function () {
             // Update table with existing users
             updateTableAsyncBatch(db.getNonRemovedFollowers()).then(() => {
                 console.log("Table initialized");
             });
         });
-        $(document).ready(function() {
+        $(document).ready(function () {
             // Update API data summary
             updateAuthDataSummary();
         });
     </script>
     <!-- Event listeners -->
     <script>
-        $(document).ready(function() {
-            document.getElementById('userAddButton').addEventListener('click', function(event) {
+        $(document).ready(function () {
+            document.getElementById('userAddButton').addEventListener('click', function (event) {
                 event.preventDefault(); // Prevent the default form submission
                 listFollowers().then((followers) => {
                     // pulling straight from the API so retain is_removed
@@ -1001,8 +1022,8 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
             });
         });
 
-        $(document).ready(function() {
-            document.getElementById('extractAuth').addEventListener('click', function(event) {
+        $(document).ready(function () {
+            document.getElementById('extractAuth').addEventListener('click', function (event) {
                 event.preventDefault(); // Prevent the default form submission
                 var js = js_editor.getValue();
                 try {
@@ -1017,10 +1038,10 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
             });
         });
 
-        $(document).ready(function() {
+        $(document).ready(function () {
             // Add filter for Verified column. Just filters based on the is_verified attribute we
             // set in the getVerifiedCheckmark function.
-            $('#verified-filter').on('change', function() {
+            $('#verified-filter').on('change', function () {
                 var filterValue = $(this).val();
                 console.log("Filtering verified: ", filterValue);
                 if (filterValue === "*") {
@@ -1031,7 +1052,7 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
                     return;
                 }
                 followersTable.column(3).search(
-                    function(searchVal, row) {
+                    function (searchVal, row) {
                         var cell = row.at(3);
                         return $(cell).attr("is_verified") === filterValue;
                     }
@@ -1039,9 +1060,9 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
             });
         });
 
-        $(document).ready(function() {
+        $(document).ready(function () {
             // Add filter for Check column. Just filters based on whether the checkbox is ticked.
-            $('#graduated-filter').on('change', function() {
+            $('#graduated-filter').on('change', function () {
                 var filterValue = $(this).val();
                 console.log("Filtering verified: ", filterValue);
                 if (filterValue === "*") {
@@ -1053,16 +1074,16 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
                 }
                 var filterBool = filterValue === "true";
                 followersTable.column(9).search(
-                    function(searchVal, row) {
+                    function (searchVal, row) {
                         return row.at(9) === filterBool;
                     }
                 ).draw();
             });
         });
 
-        $(document).ready(function() {
+        $(document).ready(function () {
             // Remove followers
-            $('#removeFollowersButton').click(function() {
+            $('#removeFollowersButton').click(function () {
                 console.log("Removing selected followers");
                 var selectedFollowers = followersTable.rows(
                     ":has(input[type='checkbox']:checked)"
@@ -1075,7 +1096,7 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
                     }
                 );
                 var nRemovedFollowers = 0;
-                const removalPromises = selectedFollowers.map(item => 
+                const removalPromises = selectedFollowers.map(item =>
                     removeFollower(item.x_id).then((was_removed) => {
                         nRemovedFollowers += was_removed ? 1 : 0;
                     }).catch((error) => {
@@ -1097,19 +1118,20 @@ To blaze through removal, double-click the checkbox of the first follower. Doubl
             });
         });
 
-        $(document).ready(function() {
+        $(document).ready(function () {
             // Reset API data button
-            $('#resetAuthButton').click(function() {
+            $('#resetAuthButton').click(function () {
                 auth = null;
                 AuthenticationData.clearStorage();
                 updateAuthDataSummary();
             });
         });
 
-        document.addEventListener("DOMContentLoaded", function() {
+        document.addEventListener("DOMContentLoaded", function () {
             var el = document.getElementById('markdown-content');
             el.innerHTML = marked.parse(el.innerText);
         });    
     </script>
 </body>
+
 </html>
