@@ -2,7 +2,6 @@ import datetime
 import enum
 import json
 import logging
-import os
 import re
 import threading
 from pathlib import Path
@@ -11,6 +10,8 @@ from typing import TypedDict
 import httpx
 from fake_useragent import FakeUserAgent
 from lxml import html
+
+from x_remove.settings import app_data_folder
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -34,30 +35,7 @@ class APIDetails(TypedDict):
 
 api_details_lookup: dict[APIOperation, APIDetails] = {}
 
-
-def get_app_data_folder(app_name: str) -> Path:
-    """Get the path to the application data folder for the given application name.
-
-    Args:
-        app_name (str): The name of the application.
-
-    """
-    if os.name == 'nt':  # Windows
-        base_dir = Path(os.getenv('APPDATA'))
-    else:  # macOS and Linux
-        base_dir = Path(os.getenv('HOME')) / '.local' / 'share'
-    
-    app_data_folder = base_dir / app_name
-    
-    # Create the directory if it doesn't exist
-    app_data_folder.mkdir(parents=True, exist_ok=True)
-    
-    return app_data_folder
-
-APP_NAME = "x-remove.com"
-app_data_folder = get_app_data_folder(APP_NAME)
 x_api_details_file: Path | None = None
-
 
 def js_object_to_python_dict(js_object_str):
     """Converts a JavaScript object string to a Python dictionary.

@@ -1,3 +1,17 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfplan
+*.tfout
+
+# Build files
+.ssl/
+*.key
+*.csr
+*.crt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

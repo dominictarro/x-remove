@@ -1,23 +1,38 @@
 import datetime
 import json
 import logging
+import logging.handlers
+import os
 import sys
 from typing import TypedDict
 
-import flask
 import httpx
-from flask import request, jsonify
+import quart
+from dotenv import load_dotenv
+from quart import request, jsonify
 
 from x_remove.api_details_refresher import XDotComAPIDetailsRefresher, APIOperation, api_details_lookup
+from x_remove.settings import app_data_folder
+
+load_dotenv()
+
+DEFAULT_LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+
+log_dir = app_data_folder / "logs"
+log_dir.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(
-    level=logging.DEBUG,
-    stream=sys.stdout,
+    level=DEFAULT_LOG_LEVEL,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
 )
 
-file_handler = logging.FileHandler("app.log")
-file_handler.setLevel(logging.DEBUG)
+file_handler = logging.handlers.TimedRotatingFileHandler(
+    (log_dir / "x-remove.log").as_posix(),
+    when="midnight",
+    interval=1,
+)
+file_handler.suffix = r"%Y-%m-%d"
+file_handler.setLevel(DEFAULT_LOG_LEVEL)
 file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 logging.getLogger("root").addHandler(file_handler)
 
@@ -43,15 +58,15 @@ def parse_cookies(cookie_string: str | None) -> dict | None:
     return cookies
 
 
-app = flask.Flask(__name__)
+app = quart.Quart(__name__)
 
 @app.route('/', methods=['GET'])
-def index():
-    return flask.render_template('index.html')
+async def index():
+    return await quart.render_template('index.html')
 
 @app.route('/remove', methods=['POST'])
-def remove_follower():
-    data: RemoveRequest = RemoveRequest(request.json)
+async def remove_follower():
+    data: RemoveRequest = RemoveRequest(await request.json)
 
     for field in RemoveRequest.__required_keys__:
         if field not in data:
@@ -72,14 +87,15 @@ def remove_follower():
     logging.info(f"Requesting X remove follower {data['target_user_id']} from {data['user_id']}")
 
     try:
-        r = httpx.post(
-            url,
-            json=payload,
-            headers=data["headers"],
-            cookies=parse_cookies(data.get("cookies")) or request.cookies,
-        )
-        r.raise_for_status()
-        return jsonify({"message": "Follower removed successfully", "target_user_id": data["target_user_id"], "user_id": data["user_id"]}), 200
+        async with httpx.AsyncClient() as client:
+            r = await client.post(
+                url,
+                json=payload,
+                headers=data["headers"],
+                cookies=parse_cookies(data.get("cookies")) or request.cookies,
+            )
+            r.raise_for_status()
+            return jsonify({"message": "Follower removed successfully", "target_user_id": data["target_user_id"], "user_id": data["user_id"]}), 200
     except httpx.HTTPStatusError as e:
         logging.error("Failed to remove follower", exc_info=e, stack_info=True)
         return jsonify({"message": f"Failed to remove follower: {e}", "target_user_id": data["target_user_id"], "user_id": data["user_id"]}), e.response.status_code
@@ -96,8 +112,8 @@ class ListRequest(TypedDict):
 
 
 @app.route('/list', methods=['POST'])
-def list_followers():
-    data: ListRequest = ListRequest(request.json)
+async def list_followers():
+    data: ListRequest = ListRequest(await request.json)
 
     data["headers"]["User-Agent"] = request.headers["User-Agent"]
 
@@ -144,18 +160,15 @@ def list_followers():
     payload["variables"] = json.dumps(payload["variables"])
     payload["features"] = json.dumps(payload["features"])
     try:
-        rq = httpx.Request("GET", url, params=payload, headers=data["headers"], cookies=parse_cookies(data.get("cookies")) or request.cookies)
-        logging.info(
-            str(rq.url)
-        )
-        r = httpx.get(
-            url,
-            params=payload,
-            headers=data["headers"],
-            cookies=parse_cookies(data.get("cookies")) or request.cookies,
-        )
-        r.raise_for_status()
-        return jsonify(r.json()), 200
+        async with httpx.AsyncClient() as client:
+            r = await client.get(
+                url,
+                params=payload,
+                headers=data["headers"],
+                cookies=parse_cookies(data.get("cookies")) or request.cookies,
+            )
+            r.raise_for_status()
+            return jsonify(r.json()), 200
     except httpx.HTTPStatusError as e:
         logging.error("Failed to list followers", exc_info=e, stack_info=True)
         return jsonify({"message": f"Failed to list followers: {e}", "user_id": data["user_id"]}), e.response.status_code
@@ -163,3 +176,5 @@ def list_followers():
         logging.error("Failed to list followers", exc_info=e, stack_info=True)
         return jsonify({"message": f"Failed to list followers: {e}", "user_id": data["user_id"]}), 500
 
+if __name__ == '__main__':
+    app.run(debug=True)
