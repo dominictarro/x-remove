@@ -697,10 +697,43 @@
         #apiAuthDataRight {
             text-align: right;
         }
+
+        .icon {
+            width: 24px;
+            height: 24px;
+            fill: #000;
+            margin-right: 10px;
+        }
+        .header {
+            display: flex;
+            justify-content: flex-end;
+            align-items: right;
+            padding: 10px;
+            background-color: #f8f9fa;
+        }
+        .icon-link {
+            display: flex;
+            align-items: center;
+            margin: 0 19dvh;
+        }
     </style>
 </head>
 
 <body>
+    <header class="header">
+        <div class="icon-link">
+            <a href="https://github.com/dominictarro/x-remove" target="_blank">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" preserveAspectRatio="xMidYMid meet" style="height: 30px; width: 30px;">
+                    <g><path d="M0 0h24v24H0z" fill="none"/><path d="M12 2C6.475 2 2 6.475 2 12a9.994 9.994 0 0 0 6.838 9.488c.5.087.687-.213.687-.476 0-.237-.013-1.024-.013-1.862-2.512.463-3.162-.612-3.362-1.175-.113-.288-.6-1.175-1.025-1.413-.35-.187-.85-.65-.013-.662.788-.013 1.35.725 1.538 1.025.9 1.512 2.338 1.087 2.912.825.088-.65.35-1.087.638-1.337-2.225-.25-4.55-1.113-4.55-4.938 0-1.088.387-1.987 1.025-2.688-.1-.25-.45-1.275.1-2.65 0 0 .837-.262 2.75 1.026a9.28 9.28 0 0 1 2.5-.338c.85 0 1.7.112 2.5.337 1.912-1.3 2.75-1.024 2.75-1.024.55 1.375.2 2.4.1 2.65.637.7 1.025 1.587 1.025 2.687 0 3.838-2.337 4.688-4.562 4.938.362.312.675.912.675 1.85 0 1.337-.013 2.412-.013 2.75 0 .262.188.574.688.474A10.016 10.016 0 0 0 22 12c0-5.525-4.475-10-10-10z"/></g>
+                </svg>
+            </a>
+            <a href="https://x.com/dominictarro" target="_blank">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" preserveAspectRatio="xMidYMid meet">
+                    <path d="M14.095479,10.316482L22.286354,1h-1.940718l-7.115352,8.087682L7.551414,1H1l8.589488,12.231093L1,23h1.940717  l7.509372-8.542861L16.448587,23H23L14.095479,10.316482z M11.436522,13.338465l-0.871624-1.218704l-6.924311-9.68815h2.981339  l5.58978,7.82155l0.867949,1.218704l7.26506,10.166271h-2.981339L11.436522,13.338465z"/>
+                </svg>
+            </a>
+        </div>
+    </header>
     <div class="container">
         <h1 class="center-align">𝕏-remove</h1>
         <p class="center-align" style="opacity: 40%;">Remove 𝕏 bots en masse.</p>
