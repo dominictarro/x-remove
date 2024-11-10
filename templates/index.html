@@ -221,7 +221,6 @@
 
     <!-- Local storage -->
     <script>
-        const FOLLOWER_DATABASE_KEY = "followerDatabase";
 
         class Database {
             constructor() {
@@ -235,10 +234,6 @@
             */
             static createDatabase() {
                 let new_db = new Database();
-                localStorage.setItem(
-                    FOLLOWER_DATABASE_KEY,
-                    JSON.stringify(new_db)
-                );
                 return new_db;
             }
 
@@ -252,33 +247,10 @@
                 }
             }
 
-            /**
-            * Load the follower database from local storage. If it doesn't exist, create a new database. If the database is older than 24 hours, create a new database.
-            * @returns {object} - The follower database object.
-            */
-            static fromStorage() {
-                var db_obj = localStorage.getItem(FOLLOWER_DATABASE_KEY);
-                if (db_obj) {
-                    db_obj = JSON.parse(db_obj);
-                    // If the database is older than 24 hours, create a new database
-                    if (new Date() - new Date(db_obj.lastUpdated) > 24 * 60 * 60 * 1000) {
-                        return this.createDatabase();
-                    }
-                    db = new Database();
-                    db.updateFromJSON(db_obj);
-                    return db;
-                }
-                return this.createDatabase();
-            }
-
             setDatabase(update_time = true) {
                 if (update_time) {
                     this.lastUpdated = new Date().toISOString();
                 }
-                localStorage.setItem(
-                    FOLLOWER_DATABASE_KEY,
-                    JSON.stringify(this)
-                );
             }
 
             /**
@@ -360,7 +332,7 @@
 
         $(document).ready(function () {
             // Initialize the database
-            db = Database.fromStorage();
+            db = new Database();
         });
     </script>
 
@@ -379,25 +351,6 @@
 
             push(cursor) {
                 this.history.push(cursor);
-                this.toStorage();
-            }
-
-            toStorage() {
-                localStorage.setItem(
-                    CURSOR_STATE_KEY,
-                    JSON.stringify(this)
-                );
-            }
-
-            static fromStorage() {
-                var cursor_history = localStorage.getItem(CURSOR_STATE_KEY);
-                if (cursor_history) {
-                    cursor = new CursorState(JSON.parse(cursor_history).history);
-                    return cursor;
-                }
-                cursor_history = new CursorState();
-                cursor_history.toStorage();
-                return cursor_history;
             }
 
             getNextSortIndex() {
@@ -416,7 +369,7 @@
         var cursor = null;
         $(document).ready(function () {
             // Initialize the cursor
-            cursor = CursorState.fromStorage();
+            cursor = new CursorState();
         });
 
     </script>
