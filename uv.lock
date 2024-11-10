@@ -429,7 +429,7 @@ wheels = [
 
 [[package]]
 name = "quart"
-version = "0.19.6"
+version = "0.19.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -442,9 +442,9 @@ dependencies = [
     { name = "markupsafe" },
     { name = "werkzeug" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ec/e4/00266057395015fdb779560b50b6dd395ee17c4a8a792b633865d3469456/quart-0.19.6.tar.gz", hash = "sha256:89ddda6da24300a5ea4f21e4582d5e89bc8ea678e724e0b747767143401e4558", size = 65544 }
+sdist = { url = "https://files.pythonhosted.org/packages/ff/e5/e804c8c04f9a6642647564fa27be992144743376e36085a4f5b760b15973/quart-0.19.8.tar.gz", hash = "sha256:ef567d0be7677c99890d5c6ff30e679699fe7e5fca1a90fa3b6974edd8421794", size = 65645 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e2/76/b81441d54f5d7d063479fd794fbf5bfd261e1136006e750093e3721311b4/quart-0.19.6-py3-none-any.whl", hash = "sha256:f9092310f4eb120903da692a5e4354f05d48c28ca7ec3054d3d94dd862412c58", size = 78185 },
+    { url = "https://files.pythonhosted.org/packages/31/1d/39c37e6f7562aab1dc32804c646c3b412cfb50c813a91116d7cb940932ae/quart-0.19.8-py3-none-any.whl", hash = "sha256:34eeb559014f4e72e093d034cfe203b1a6262e9d3504f826f293090e230609f2", size = 78273 },
 ]
 
 [[package]]
@@ -488,16 +488,16 @@ wheels = [
 
 [[package]]
 name = "uvicorn"
-version = "0.30.6"
+version = "0.32.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
     { name = "h11" },
     { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/01/5e637e7aa9dd031be5376b9fb749ec20b86f5a5b6a49b87fabd374d5fa9f/uvicorn-0.30.6.tar.gz", hash = "sha256:4b15decdda1e72be08209e860a1e10e92439ad5b97cf44cc945fcbee66fc5788", size = 42825 }
+sdist = { url = "https://files.pythonhosted.org/packages/e0/fc/1d785078eefd6945f3e5bab5c076e4230698046231eb0f3747bc5c8fa992/uvicorn-0.32.0.tar.gz", hash = "sha256:f78b36b143c16f54ccdb8190d0a26b5f1901fe5a3c777e1ab29f26391af8551e", size = 77564 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f5/8e/cdc7d6263db313030e4c257dd5ba3909ebc4e4fb53ad62d5f09b1a2f5458/uvicorn-0.30.6-py3-none-any.whl", hash = "sha256:65fd46fe3fda5bdc1b03b94eb634923ff18cd35b2f084813ea79d1f103f711b5", size = 62835 },
+    { url = "https://files.pythonhosted.org/packages/eb/14/78bd0e95dd2444b6caacbca2b730671d4295ccb628ef58b81bee903629df/uvicorn-0.32.0-py3-none-any.whl", hash = "sha256:60b8f3a5ac027dcd31448f411ced12b5ef452c646f76f02f8cc3f25d8d26fd82", size = 63723 },
 ]
 
 [package.optional-dependencies]
@@ -704,7 +704,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27.2" },
     { name = "lxml", specifier = ">=5.3.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
-    { name = "quart", specifier = ">=0.19.6" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.6" },
+    { name = "quart", specifier = ">=0.19.8" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0" },
     { name = "x-remove", editable = "." },
 ]
